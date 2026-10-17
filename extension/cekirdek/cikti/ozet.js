@@ -42,7 +42,6 @@ export function ozetMetni(c) {
         `${S.oran ? ` · KS oranı ${S.oran}` : ''}${yol ? ` · ${yol.ad} ${trTarih(S.takvim.DSye_hak_kazanma)}` : ' · DS yok'} · KS ${trTarih(S.takvim.kosullu_saliverilme)} · ${DURUM_ETIKETI[S.durum]}`,
     );
     if (S.acik_kurum?.yol === 'kapalidan') s.push(`   Açığa ayrılma: ${trTarih(S.acik_kurum.tarih)}`);
-    for (const y of S.alternatif_yollar) s.push(`   Alternatif ${y.ad}: ${y.kurumda_kalis_gun} gün (hukuki inceleme)`);
   }
   s.push('');
   if (c.gerekli_kararlar?.length) s.push('Gerekli kararlar:', ...c.gerekli_kararlar.map((k) => `  - ${k.metin}`));

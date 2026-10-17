@@ -249,6 +249,7 @@ export function sonucCiz(o, { gorunen = null, acikNeden = null, paylasVar = fals
       </div>
       ${acikNeden ? nedenHtml(o, acikNeden) : '<p class="ipucu ortali">Nedenini görmek için sayıya dokunun.</p>'}
       ${cizelge(o.olaylar)}
+      ${o.talepsiz ? `<p class="talepsiz"><b>Denetimli serbestliği talep etmezse:</b> ${esc(tr(o.talepsiz.cikis))} tarihinde ${o.talepsiz.ks ? 'koşullu salıverilme ile' : 'ceza bitiminde'} çıkar · ${o.talepsiz.icerde} gün cezaevinde${o.talepsiz.kapali && o.talepsiz.acik ? ` (${o.talepsiz.kapali} kapalı, ${o.talepsiz.acik} açık)` : ''}.</p>` : ''}
       ${o.en_cok ? '<p class="not-satiri">Bazı bilgiler bilinmediği için aleyhe hesaplandı; süre daha kısa olabilir.</p>' : ''}
       <div class="eylemler">
         <button type="button" class="dugme" data-eylem="kopyala">${IKON.kopya}<span>Kopyala</span></button>

@@ -30,6 +30,11 @@ export const IHTIYAT_YONU = {
   cek_gecis: null,
   tekerrur_onkosul: null,
   tekerrur_adayi: null,
+  // Geçici 10/6 anlık durum düğümleri (D060-D065): erken yol belirsizse uygulanmaz.
+  gecici10_erken_acik: false,
+  gecici10_acik_yolu: false,
+  gecici10_DS: false,
+  gecici10_DS_engeli: null,
 };
 
 export class KararMotoru {
@@ -81,8 +86,9 @@ export function izMetni(iz, derinlik = 0, satirlar = []) {
     iz.alt.forEach((a) => izMetni(a, derinlik + 1, satirlar));
   } else if (iz.op === 'secici') {
     satirlar.push(`${girinti}${d} seçici ${iz.secici_id} (${iz.ad})`);
-  } else if (iz.op === 'once_kesinlesme' || iz.op === 'alan_esit') {
-    satirlar.push(`${girinti}${d} ${iz.sol} ${iz.op === 'once_kesinlesme' ? '<' : '='} ${iz.sag} [${JSON.stringify(iz.solDeger)} / ${JSON.stringify(iz.sagDeger)}]`);
+  } else if (iz.sol) {
+    const isaret = { once_kesinlesme: '<', alan_esit: '=', tarih_alan_gte: '≥', tarih_alan_lt: '<' }[iz.op];
+    satirlar.push(`${girinti}${d} ${iz.sol} ${isaret} ${iz.sag} [${JSON.stringify(iz.solDeger)} / ${JSON.stringify(iz.sagDeger)}]`);
   } else {
     satirlar.push(`${girinti}${d} ${iz.alan} ${iz.op} ${JSON.stringify(iz.beklenen)} [girdi: ${JSON.stringify(iz.gercek)}]`);
   }

@@ -1,4 +1,4 @@
-// infaz-kosul 1.0 uyum testleri: kural tabanındaki karar_mantigi_testleri (M001-M125)
+// infaz-kosul 1.0 uyum testleri: kural tabanındaki karar_mantigi_testleri (M001-M125 ve G10_001-G10_037)
 // başvuru yorumlayıcısıyla aynı sonucu vermelidir.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,8 +7,8 @@ import { KAYNAK, kt } from './yardimci.js';
 
 const testler = KAYNAK.karar_mantigi_testleri.testler;
 
-test('Kural tabanı 125 mantık testi içerir ve hepsi başvuru yorumlayıcısında geçmiştir', () => {
-  assert.equal(testler.length, 125);
+test('Kural tabanı 162 mantık testi içerir ve hepsi başvuru yorumlayıcısında geçmiştir', () => {
+  assert.equal(testler.length, 162);
   assert.equal(KAYNAK.karar_mantigi_testleri.basarisiz, 0);
 });
 

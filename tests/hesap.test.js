@@ -132,16 +132,50 @@ test('Terör suçlusunun ağırlaştırılmış müebbeti: koşullu salıverilme
 });
 
 test('Müebbet: genel 24 yıl, birinci ve ikinci tekerrürde 33 yıl (108/1, 108/3); DS için açık KS\'ye 5 yıl', () => {
-  const c = hesapla(kt, vaka({ suc_tarihi: '2021-01-01', hukumdeki_ceza_turu: 'muebbet', hukumdeki_sonuc_ceza: null }, { infaza_baslama_tarihi: '2022-01-01' }));
+  const c = hesapla(kt, vaka({ suc_tarihi: '2023-08-01', hukumdeki_ceza_turu: 'muebbet', hukumdeki_sonuc_ceza: null }, { infaza_baslama_tarihi: '2022-01-01' }));
   assert.equal(senaryo(c).takvim.kosullu_saliverilme, '2046-01-01');
   assert.equal(senaryo(c).acik_kurum.tarih, '2041-01-01');
   assert.equal(senaryo(c).takvim.DSye_hak_kazanma, '2045-01-01');
   assert.equal(senaryo(c, 'birinci').takvim.kosullu_saliverilme, '2055-01-01');
   assert.equal(senaryo(c, 'ikinci').takvim.kosullu_saliverilme, '2055-01-01');
   // 30/03/2020 öncesi suçta geçici 6/1 müebbette de 3 yıllık pencere verir (kapalıda da, m.6/3)
-  const eski = senaryo(hesapla(kt, vaka({ suc_tarihi: '2019-01-01', hukumdeki_ceza_turu: 'muebbet', hukumdeki_sonuc_ceza: null }, { infaza_baslama_tarihi: '2020-01-01' })));
+  const eski = senaryo(hesapla(kt, vaka({ suc_tarihi: '2019-01-01', hukumdeki_ceza_turu: 'muebbet', hukumdeki_sonuc_ceza: null }, { infaza_baslama_tarihi: '2020-01-01', hesap_tarihi: '2025-06-01' })));
   assert.equal(eski.secilen_ds_yolu, 'DS_gecici6_1');
   assert.equal(eski.takvim.DSye_hak_kazanma, '2041-01-01');
+});
+
+test('Geçici 10/6 müebbette: kapalıda 3 ay, normal açıktan 3 yıl önce açığa; normal DS\'den 3 yıl önce DS', () => {
+  const S = senaryo(hesapla(kt, vaka({ suc_tarihi: '2021-01-01', hukumdeki_ceza_turu: 'muebbet', hukumdeki_sonuc_ceza: null }, { infaza_baslama_tarihi: '2022-01-01' })));
+  assert.equal(S.takvim.kosullu_saliverilme, '2046-01-01');
+  assert.equal(S.acik_kurum.kapali.normal_tarih, '2041-01-01');
+  assert.equal(S.acik_kurum.tarih, '2038-01-01');
+  assert.equal(S.secilen_ds_yolu, 'gecici10_6');
+  assert.equal(S.takvim.DSye_hak_kazanma, '2042-01-01');
+});
+
+test('Geçici 10/6: 3 yıl 1 ay 15 gün hırsızlık (2023) → 1 ay kapalı, 3 ay açık, sonra DS', () => {
+  const S = senaryo(hesapla(kt, vaka({ suc_tarihi: '2023-01-01', hukumdeki_sonuc_ceza: { yil: 3, ay: 1, gun: 15 }, kanun_madde_fikra_bent: { kanun: 5237, madde: '142' } })));
+  assert.equal(S.acik_kurum.tarih, '2026-01-31');
+  assert.equal(S.secilen_ds_yolu, 'gecici10_6');
+  assert.equal(S.takvim.kurumdan_cikis, '2026-05-01'); // 31.01 + 3 ay (90 gün)
+  assert.equal(S.takvim.kosullu_saliverilme, '2027-07-25');
+  assert.equal(S.kurumda_kalis_gun, 120);
+  // Aynı dosya 01/08/2023 suçunda olağan yola döner
+  const yeni = senaryo(hesapla(kt, vaka({ suc_tarihi: '2023-08-01', hukumdeki_sonuc_ceza: { yil: 3, ay: 1, gun: 15 }, kanun_madde_fikra_bent: { kanun: 5237, madde: '142' } })));
+  assert.equal(yeni.secilen_ds_yolu, 'DS_105A_1');
+  assert.equal(yeni.takvim.kurumdan_cikis, '2026-07-25');
+});
+
+test('Geçici 10/6 tarih bileşimi (kural tabanı GT01-GT05): yürürlükten önce tarih üretmez', () => {
+  // GT04: normal DS 2027-01-01, açık 3 ay 2025-11-01 → 2025-12-25
+  const S = senaryo(hesapla(kt, vaka({ suc_tarihi: '2022-01-01', hukumdeki_sonuc_ceza: { yil: 2 } }, { infaza_baslama_tarihi: '2025-08-01', hesap_tarihi: '2026-01-10' })));
+  const y = S.ds_yollari.find((x) => x.id === 'gecici10_6');
+  assert.equal(y.uygun, true);
+  assert.ok(y.tarih >= '2025-12-25');
+  // İstisna suç (TCK 102) geçici 10/6 dışında
+  const istisna = senaryo(hesapla(kt, vaka({ suc_tarihi: '2022-01-01', hukumdeki_sonuc_ceza: { yil: 8 }, kanun_madde_fikra_bent: { kanun: 5237, madde: '102', fikra: '1' } })));
+  assert.equal(istisna.ds_yollari.find((x) => x.id === 'gecici10_6').uygun, false);
+  assert.equal(istisna.acik_kurum.kapali.gecici10, null);
 });
 
 test('Ağırlaştırılmış müebbet (terör dışı): 30 yıl; açığa ayrılamaz, DS yolu yok', () => {
@@ -153,13 +187,14 @@ test('Ağırlaştırılmış müebbet (terör dışı): 30 yıl; açığa ayrıl
 });
 
 test('Geçici 6/1 kapalı kurumda da uygulanır: DS = KS − 3 yıl', () => {
-  const S = senaryo(hesapla(kt, vaka({ suc_tarihi: '2019-06-01', hukumdeki_sonuc_ceza: { yil: 8 }, hukumdeki_tekerrur: 'yok' })));
+  // Hesap tarihi güncel geçici 10/6 yürürlüğünden (25/12/2025) önce: 10/6 devreye girmez.
+  const S = senaryo(hesapla(kt, vaka({ suc_tarihi: '2019-06-01', hukumdeki_sonuc_ceza: { yil: 8 }, hukumdeki_tekerrur: 'yok' }, { hesap_tarihi: '2025-06-01' })));
   assert.equal(S.secilen_ds_yolu, 'DS_gecici6_1');
   assert.equal(S.takvim.DSye_hak_kazanma, T.yilEkle(S.takvim.kosullu_saliverilme, -3));
 });
 
 test('Geçici 6/2-a: 70 yaşını bitirmiş hükümlüde 4 yıllık pencere', () => {
-  const S = senaryo(hesapla(kt, vaka({ suc_tarihi: '2019-01-01', hukumdeki_sonuc_ceza: { yil: 10 }, kanun_madde_fikra_bent: { kanun: 5237, madde: '157' } }, { dogum_tarihi: '1950-01-01' })));
+  const S = senaryo(hesapla(kt, vaka({ suc_tarihi: '2019-01-01', hukumdeki_sonuc_ceza: { yil: 10 }, kanun_madde_fikra_bent: { kanun: 5237, madde: '157' } }, { dogum_tarihi: '1950-01-01', hesap_tarihi: '2025-06-01' })));
   assert.equal(S.ds_yollari.find((y) => y.id === 'DS_gecici6_2a').uygun, true);
   assert.equal(S.secilen_ds_yolu, 'DS_gecici6_2a');
 });
@@ -220,7 +255,7 @@ test('Belirlenimcilik: aynı girdi aynı çıktıyı üretir; çıktı paket ve 
   const c = JSON.parse(a);
   assert.equal(c.veri_paketi_sha256, kt.sha256);
   assert.match(c.hesap_profili_id, /^A01-taslak/);
-  assert.match(ozetMetni(hesapla(kt, v)), /Kural tabanı: 0\.3\.0/);
+  assert.match(ozetMetni(hesapla(kt, v)), /Kural tabanı: 0\.4\.0/);
 });
 
 test('Politika: motor yalnız izin verilen durumları üretir; kurumda kalış negatif olmaz', () => {

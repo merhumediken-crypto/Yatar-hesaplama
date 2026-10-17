@@ -140,6 +140,26 @@ try {
   await page.fill('#s_tarih', '2025-07-01');
   await devam();
 
+  // 6b) 31/07/2023 öncesi suç: geçici 10/6 → 1 ay kapalı, 3 ay açık, sonra DS; talepsiz satırı
+  await page.click('[data-duzenle="suc_tarihi"]');
+  await page.fill('#s_tarih', '2023-01-01');
+  await devam();
+  await page.click('[data-duzenle="ceza"]');
+  await page.fill('#s_yil', '3');
+  await page.fill('#s_ay', '1');
+  await page.fill('#s_gun', '15');
+  await devam();
+  await page.click('[data-duzenle="suc"]');
+  await page.fill('#s_ara', '142');
+  await page.click('[data-suc="5237|142"]');
+  assert.deepEqual(await sayilar(), ['30', '90', '450']);
+  const g10 = await page.locator('.sonuc-kart').innerText();
+  assert.match(g10, /geçici 10\/6/);
+  assert.match(g10, /talep etmezse:.*25\.07\.2027/);
+  await page.click('[data-neden="ds"]');
+  assert.match(await page.locator('.neden-kutu').innerText(), /Geçici 10\/6/);
+  await goruntu(page, '2b-telefon-gecici10');
+
   // 7) Kayıt: sayfa yenilenince dosya geri gelir
   await page.reload();
   await page.waitForSelector('body.hazir');

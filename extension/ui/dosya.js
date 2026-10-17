@@ -86,8 +86,8 @@ export function girisTarihi(d, bugun) {
 }
 
 // Dosya → kanonik vaka (docs/MIMARI.md). İyi hâl ve DS talebi açıkça var sayılır:
-// sonuç ekranı tarihleri "iyi hâl şartıyla" verir.
-export function vakaKur(d, bugun) {
+// sonuç ekranı tarihleri "iyi hâl şartıyla" verir. Talepsiz hâl ayrıca hesaplanır.
+export function vakaKur(d, bugun, { dsTalebi = true } = {}) {
   const ozel = ozelDurum(d);
   const tck = d.suc?.kanun === 5237 ? d.suc.madde : null;
   // 220/314: 1. fıkra kurma/yönetme, diğerleri üyelik; fıkra bilinmiyorsa en az üyelik vardır.
@@ -109,7 +109,7 @@ export function vakaKur(d, bugun) {
     kadin_0_6_cocuk: kadinCocuk,
     rapor_105A_3_b: typeof ek.rapor === 'boolean' ? ek.rapor : null,
     iyi_hal: true,
-    ds_talebi: true,
+    ds_talebi: dsTalebi,
     mahsup_kayitlari: mahsup,
     tekerrure_esas_en_agir_ceza: d.tekerrur === 'birinci' && cezaVar(d.esas_ceza) ? d.esas_ceza : null,
     onceki_mahkumiyetler: [],

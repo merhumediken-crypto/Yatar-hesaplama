@@ -57,9 +57,14 @@ test('K06: 31/03/2020 suçu geçici 6/1 dışında', () => {
 test('K07: Geçici 10/6 son suç gününde tarih koşulu var; nihai uygunluk diğer şartlara bağlı', () => {
   const S = senaryo(hesapla(kt, vaka({ suc_tarihi: '2023-07-31', hukumdeki_sonuc_ceza: { yil: 10 } })));
   assert.equal(yol(S, 'gecici10_6').uygun, true);
-  const alt = S.alternatif_yollar.find((y) => y.id === 'gecici10_6');
-  assert.ok(alt);
-  assert.equal(alt.durum, 'hukuki_inceleme_gerekli');
+  // 10 yıl: kapalıda 3 ay → erken açık; açıkta 3 ay ve normal DS'den 3 yıl önce → erken DS.
+  assert.equal(S.secilen_ds_yolu, 'gecici10_6');
+  assert.equal(S.acik_kurum.tarih, '2026-04-01');
+  assert.equal(S.acik_kurum.kapali.normal_tarih, '2027-01-01');
+  assert.equal(S.takvim.DSye_hak_kazanma, '2027-01-01');
+  assert.equal(S.takvim.kosullu_saliverilme, '2031-01-01', 'KS tarihi değişmez');
+  // Nihai uygunluk talep ve kararlara bağlıdır: gerekli kararlar listelenir.
+  assert.ok(S.gerekli_kararlar.some((k) => /Geçici 10\/6/.test(k.metin)));
 });
 
 test('K08: 01/08/2023 suçunda geçici 10/6 tarih koşulu yok', () => {
@@ -182,7 +187,8 @@ test('K25: Güncel 10/6 TCK 82/1-e öldürmeyi dışlar; önceki rejim hukuki in
 test('K26: Normal DS daha erkense geçici 10/6 için 3 ay açıkta bekletilmez', () => {
   const S = senaryo(hesapla(kt, vaka({ suc_tarihi: '2023-01-01' })));
   assert.equal(S.kurumda_kalis_gun, 0);
-  assert.equal(S.alternatif_yollar.length, 0);
+  assert.equal(S.secilen_ds_yolu, 'DS_105A_1');
+  assert.equal(yol(S, 'gecici10_6').uygun, true, 'yol açık ama olağan yol daha erken');
 });
 
 test('K27: İkinci tekerrürde salt oran/onda birden 27 gün kesin tahliye üretilmez', () => {

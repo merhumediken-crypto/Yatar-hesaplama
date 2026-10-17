@@ -22,7 +22,7 @@ test('Derlenmiş paketler kaynakla birebir güncel (npm run veri)', () => {
 
 test('Paket kimliği kaynak dosyanın SHA-256 özetini taşır', () => {
   assert.equal(PAKET.kimlik.kaynak_sha256, crypto.createHash('sha256').update(KAYNAK_METNI).digest('hex'));
-  assert.equal(PAKET.kimlik.paket_surumu, '0.3.0-karar-modelli');
+  assert.equal(PAKET.kimlik.paket_surumu, '0.4.0-gecici10-butunlesik');
 });
 
 test('TCK yapısı tam metin başlıklarından doğru türetilir', () => {

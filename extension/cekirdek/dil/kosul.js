@@ -15,7 +15,8 @@ const ISO_TARIH = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export const KARSILASTIRMA = new Set(['eq', 'in', 'gte', 'gt', 'lte', 'lt', 'date_lte', 'date_gte', 'date_lt', 'date_gt']);
 export const MANTIK = new Set(['and', 'or']);
-export const IKILI_ALAN = new Set(['alan_esit', 'once_kesinlesme']);
+// İki alanı karşılaştıran işleçler (sol / sag alan yolları).
+export const IKILI_ALAN = new Set(['alan_esit', 'once_kesinlesme', 'tarih_alan_gte', 'tarih_alan_lt']);
 export const OPERATORLER = new Set([...KARSILASTIRMA, ...MANTIK, 'not', ...IKILI_ALAN, 'secici']);
 
 // ---------------------------------------------------------------------------
@@ -117,7 +118,7 @@ class Degerlendirici {
       this.seciciYigini.pop();
       return this.dugum(ifade, alt.deger, { secici_id: ifade.secici_id, ad: s.ad, alt: [alt] });
     }
-    if (op === 'alan_esit' || op === 'once_kesinlesme') return this.ikili(ifade);
+    if (IKILI_ALAN.has(op)) return this.ikili(ifade);
     if (KARSILASTIRMA.has(op)) return this.karsilastir(ifade);
     throw new Error('Tanımsız operatör: ' + op);
   }
@@ -134,11 +135,14 @@ class Degerlendirici {
       }
       return this.dugum(ifade, sol === sag, ek);
     }
-    // once_kesinlesme: önceki kesinleşme yeni suçtan önce olmalı; aynı gün sıra belirsiz.
     if (!gecerliIsoTarih(sol) || !gecerliIsoTarih(sag)) {
       this.hata(ifade, 'Geçersiz tarih');
       return this.dugum(ifade, null, ek);
     }
+    // kural_dili.tarih_alan_karsilastirma: iki ISO takvim tarihinin kıyası.
+    if (ifade.op === 'tarih_alan_gte') return this.dugum(ifade, sol >= sag, ek);
+    if (ifade.op === 'tarih_alan_lt') return this.dugum(ifade, sol < sag, ek);
+    // once_kesinlesme: önceki kesinleşme yeni suçtan önce olmalı; aynı gün sıra belirsiz.
     const deger = sol < sag ? true : sol > sag ? false : null;
     return this.dugum(ifade, deger, { ...ek, ayniGun: sol === sag });
   }

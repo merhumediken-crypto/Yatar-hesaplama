@@ -7,9 +7,11 @@
 //   - Kapalıdan açığa ayrılma (Yönetmelik m.6/1-a: <10 yıl → 1 ay; ≥10 yıl → toplam
 //     cezanın onda biri; KS'ye 7 yıl veya daha az; m.6/2 özel suç eşikleri D035/D036)
 //   - Ayrılma yasakları (Yönetmelik m.8: ağırlaştırılmış müebbet, terör/örgüt suçları …)
+//   - Geçici 10/6 erken açığa ayrılma (31/07/2023 ve öncesi suç; D024, R131): kapalıda
+//     1 ay (10 yıl ve üzeri/müebbette 3 ay) ve normal açığa ayrılmaya 3 yıl veya az kalması
 
 import { Kesir } from '../zaman/rasyonel.js';
-import { gunEkle, gunFarki, yilEkle, enGec, trTarih } from '../zaman/takvim.js';
+import { gunEkle, gunFarki, yilEkle, enGec, once, trTarih } from '../zaman/takvim.js';
 import { kurumAyiEkle, yuvarla } from '../zaman/profil.js';
 import { veya } from '../dil/kosul.js';
 
@@ -106,8 +108,34 @@ export function kapalidanAcikPlani(kt, motor, ortam, baglam, ksTarihi) {
       kalemler.push({ ad: `Yüksek güvenlikli kurum: KS'ye ${r82.yuksek_guvenlik_KSye_kalan_azami_yil} yıl veya daha az`, tarih: yilEkle(ksTarihi, -r82.yuksek_guvenlik_KSye_kalan_azami_yil), kural: 'R082' });
     }
   }
-  const tarih = enGec(E, ...kalemler.map((k) => k.tarih));
-  return { tarih, kalemler, ihtiyatli, aciklama: `En erken açığa ayrılma: ${trTarih(tarih)} (iyi hâl ve idare ve gözlem kurulu kararı gerekir).` };
+  const normal = enGec(E, ...kalemler.map((k) => k.tarih));
+  const erken = gecici10ErkenAcik(kt, motor, ortam, baglam, normal);
+  const tarih = erken && once(erken.tarih, normal) ? erken.tarih : normal;
+  if (tarih !== normal) kalemler.push(...erken.kalemler);
+  return {
+    tarih,
+    normal_tarih: normal,
+    gecici10: tarih !== normal ? erken : null,
+    kalemler,
+    ihtiyatli,
+    aciklama: `En erken açığa ayrılma: ${trTarih(tarih)}${tarih !== normal ? ` (geçici 10/6; normal tarih ${trTarih(normal)})` : ''} (iyi hâl ve idare ve gözlem kurulu kararı gerekir).`,
+  };
+}
+
+// Geçici 10/6 erken açığa ayrılma: max(yürürlük, kapalıda 1/3 ay, normal açığa ayrılmadan 3 yıl önce).
+export function gecici10ErkenAcik(kt, motor, ortam, baglam, normalTarih) {
+  if (motor.karar('D024', baglam).cozulen !== true) return null;
+  const r55 = kt.p('R055');
+  const muebbet = ['muebbet', 'agirlastirilmis_muebbet'].includes(baglam.ilam.ceza_turu);
+  const onYil = muebbet || baglam.infaz.toplam_hapis_on_takvim_yilindan_az === false;
+  const ay = onYil ? r55.kapalida_asgari.toplam_hapis_10_yil_ve_uzeri_ay : r55.kapalida_asgari.toplam_hapis_10_yildan_az_ay;
+  const kalanYil = r55.normal_aciga_ayrilmaya_kalan_azami_yil;
+  const kalemler = [
+    { ad: 'Geçici 10/6 yürürlüğü (7571 m.27)', tarih: r55.yururluk, kural: 'R130' },
+    { ad: `Geçici 10/6: kapalıda ${ay} ay`, tarih: kurumAyiEkle(ortam.profil, ortam.E, ay), kural: 'R131' },
+    { ad: `Geçici 10/6: normal açığa ayrılmaya (${trTarih(normalTarih)}) ${kalanYil} yıl veya az kalması`, tarih: yilEkle(normalTarih, -kalanYil), kural: 'R131' },
+  ];
+  return { tarih: enGec(ortam.E, ...kalemler.map((k) => k.tarih)), kapali_ay: ay, kalemler };
 }
 
 export function acikKurumPlani(kt, motor, ortam, baglam, ksTarihi) {

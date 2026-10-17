@@ -83,7 +83,13 @@ function olaylar(d, S, bol) {
     aciklama: `${girisVarsayim ? 'Bugün girdiği varsayıldı' : d.konum === 'cezaevinde' ? 'İnfaza başlama' : 'Varsayılan giriş'}${mahsup}`,
   });
   if (!dogrudanAcik && bol.acikTarih) {
-    liste.push({ tur: 'acik', tarih: bol.acikTarih, baslik: 'Açık cezaevine geçiş', aciklama: 'En erken; iyi hâl ve kurul kararıyla' });
+    const g10 = S.acik_kurum?.kapali?.gecici10;
+    liste.push({
+      tur: 'acik',
+      tarih: bol.acikTarih,
+      baslik: 'Açık cezaevine geçiş',
+      aciklama: g10 ? `Geçici 10/6 ile erken (normalde ${tr(S.acik_kurum.kapali.normal_tarih)}) · kurul kararıyla` : 'En erken; iyi hâl ve kurul kararıyla',
+    });
   } else if (S.acik_kurum?.yol === 'yasak') {
     liste.push({ tur: 'yasak', tarih: null, baslik: 'Açık cezaevine geçemez', aciklama: 'Bütün süre kapalı cezaevinde' });
   }
@@ -93,7 +99,7 @@ function olaylar(d, S, bol) {
       tur: 'cikis',
       tarih: t.kurumdan_cikis,
       baslik: ds ? 'Cezaevinden çıkış · denetimli serbestlik' : t.kosullu_saliverilme ? 'Cezaevinden çıkış · koşullu salıverilme' : 'Cezaevinden çıkış',
-      aciklama: ds || t.kosullu_saliverilme ? 'En yakın tahliye · iyi hâl şartıyla' : 'Ceza bitimi',
+      aciklama: S.secilen_ds_yolu === 'gecici10_6' ? 'En yakın tahliye · geçici 10/6 (3 yıl erken) · iyi hâl ve talep şartıyla' : ds || t.kosullu_saliverilme ? 'En yakın tahliye · iyi hâl şartıyla' : 'Ceza bitimi',
       vurgu: true,
     });
   }
@@ -132,7 +138,8 @@ function karsilastirma(c, secili) {
 }
 
 // Ana giriş. `anahtar` verilmezse dosyanın tekerrür cevabına göre senaryo seçilir.
-export function sonucOzeti(kt, d, c, anahtar = null) {
+// `talepsiz`: aynı dosyanın hükümlü DS talep etmeden hesabı (yoksa gösterilmez).
+export function sonucOzeti(kt, d, c, anahtar = null, talepsiz = null) {
   if (kapsamDisi(d)) {
     return { durum: 'kapsam_disi', mesaj: `${tr(KAPSAM_BASLANGICI)} öncesi suçlar bu araçta hesaplanmaz (765 sayılı TCK ile lehe kanun karşılaştırması gerekir).` };
   }
@@ -165,8 +172,17 @@ export function sonucOzeti(kt, d, c, anahtar = null) {
     olaylar: olaylar(d, S, bol),
     dikkat: dikkatNotlari(c, S),
     adimlar: S.izler.map((i) => `${i.adim}: ${i.aciklama}`),
-    ceza_metni: t.toplam_ceza_gun ? `${T.cezaMetni(c.vaka.suclar_ve_ilamlar[0].hukumdeki_sonuc_ceza)}` : null,
+    talepsiz: talepsizOzet(S, talepsiz?.senaryolar?.[secili]),
   };
+}
+
+// Hükümlü DS talep etmezse: çıkış koşullu salıverilmede (yoksa ceza bitiminde).
+// Yalnız talepli sonuçtan farklıysa döner.
+function talepsizOzet(S, T2) {
+  if (!T2?.takvim?.kurumdan_cikis || T2.kurumda_kalis_gun === null || !S.takvim.DSye_hak_kazanma) return null;
+  if (T2.takvim.kurumdan_cikis === S.takvim.kurumdan_cikis) return null;
+  const bol = kurumBolumleri(T2);
+  return { cikis: T2.takvim.kurumdan_cikis, icerde: T2.kurumda_kalis_gun, kapali: bol.kapali, acik: bol.acik, ks: !!T2.takvim.kosullu_saliverilme };
 }
 
 // Müvekkile gönderilebilecek düz metin.
@@ -182,6 +198,7 @@ export function paylasimMetni(d, o) {
   satirlar.push(`${parca.length ? parca.join(', ') + ' kalır' : 'Cezaevinde kalmaz'}${o.ds ? `; sonra ${o.ds} gün denetimli serbestlik` : ''}.`);
   satirlar.push('');
   for (const e of o.olaylar) if (e.tarih) satirlar.push(`${tr(e.tarih)}  ${e.baslik}`);
+  if (o.talepsiz) satirlar.push(`\nDenetimli serbestliği talep etmezse: ${tr(o.talepsiz.cikis)} tarihinde ${o.talepsiz.ks ? 'koşullu salıverilme ile' : 'ceza bitiminde'} çıkar (${o.talepsiz.icerde} gün cezaevinde).`);
   satirlar.push('');
   satirlar.push('Tarihler iyi hâl şartıyla en erken tarihlerdir; kurum ve hâkimlik kararlarına bağlıdır.');
   if (o.en_cok) satirlar.push('Bazı bilgiler bilinmediğinden aleyhe hesaplandı; süre daha kısa olabilir.');

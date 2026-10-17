@@ -8,8 +8,8 @@ genişletme yollarını anlatır. Hedef: hukuki mantığın **veride**, hesap ma
 
 | İlke | Uygulama |
 |---|---|
-| **Tek doğruluk kaynağı** | `kaynak/kural_tabani.json` (0.3.0-karar-modelli, ~5 MB). Oranlar, süreler, tarih eşikleri, istisna listeleri ve karar koşulları buradan okunur; kodda hukuki sayı sabiti yoktur. |
-| **Hukuk mantığı veride** | Suç kapsamları ve kapılar `infaz-kosul 1.0` diliyle yazılmış 42 karar düğümü ve 9 seçicidir. Motor bu ifadeleri yorumlar; `eval`/`Function` kullanılmaz. |
+| **Tek doğruluk kaynağı** | `kaynak/kural_tabani.json` (0.4.0-gecici10-butunlesik, ~5 MB). Oranlar, süreler, tarih eşikleri, istisna listeleri ve karar koşulları buradan okunur; kodda hukuki sayı sabiti yoktur. |
+| **Hukuk mantığı veride** | Suç kapsamları ve kapılar `infaz-kosul 1.0` diliyle yazılmış 48 karar düğümü ve 9 seçicidir. Motor bu ifadeleri yorumlar; `eval`/`Function` kullanılmaz. |
 | **Üç değerli mantık** | Bilinmeyen alan `null` kalır, `false` sayılmaz (güçlü Kleene). Tip uyuşmazlığı belirsizdir ve veri hatası olarak kaydedilir. |
 | **Varsayımlar açık** | Varsayımlı senaryo iki katmanla üretilir: belgeli bağlam (yalnız girilen bilgi) + kayda geçen "olağan dosya" varsayımları. Hâlâ belirsiz kalan düğüm hükümlü aleyhine çözülür ve sonuç **en çok** diye işaretlenir. |
 | **Kesin sonuç iddiası yok** | Durum makinesi yalnız `eksik_veri`, `hukuki_inceleme_gerekli` ve `varsayimli_senaryo` üretir. Karar gerektiren her şey (iyi hâl, açığa ayırma, DS, KS) "gerekli kararlar" listesine yazılır, gerçekleşmiş sayılmaz. |
@@ -84,8 +84,23 @@ Sıra, kural tabanındaki `uygulama_sirasi` ile aynıdır:
 6. **Açık kurum**: doğrudan (D030/D031, D034) · kapalıdan açığa (Yönetmelik m.6: D032/D033,
    KS'ye 7 yıl, D035/D036 özel eşikler, yüksek güvenlik) · yasak (Yönetmelik m.8).
 7. **DS yolları**: 105/A-1, 105/A-3-a/b (D020-D022, aday tarihte kapı kabulüyle),
-   geçici 6/1, 6/2-a/b (kapalıda da), asgari kurum süresi (D025). En erken uygun yol seçilir;
-   geçici 10/6 (D024) ayrı "alternatif yol" olarak, inceleme etiketiyle gösterilir.
+   geçici 6/1, 6/2-a/b (kapalıda da), asgari kurum süresi (D025) ve geçici 10/6 (D024).
+   En erken uygun yol seçilir. Hükümlü DS talep etmezse hiçbir yol uygulanmaz; arayüz
+   talepsiz hâli ayrıca hesaplayıp gösterir.
+
+### 4.1 Geçici 10/6 (31/07/2023 ve öncesi suçlar; 7571 m.27, yürürlük 25/12/2025)
+
+Kapsam D024'tür: suç tarihi ≤ 31/07/2023, SC06 istisnası yok, hesap tarihi ≥ 25/12/2025.
+Ayrıntılı kurallar R130-R135'tedir. D060-D065 anlık durum düğümleri (bugün sağlanıyor mu?)
+olduğundan zaman çizelgesi aynı formülle kurulur (`gecici_10_6_modulu.tarih_formulleri`):
+
+* **Erken açık** (`hesap/acik-kurum.js`): max(25/12/2025, kapalıda 1 ay ya da 10 yıl ve
+  üzeri/müebbette 3 ay, normal açığa ayrılmadan 3 yıl önce). Normal tarihten erkense açığa
+  geçiş tarihi olur. Talebe bağlı değildir.
+* **Erken DS** (`hesap/ds.js`): max(25/12/2025, açıkta 3 ayın tamamlanması, normal DS
+  tarihinden 3 yıl önce). Normal DS tarihi 105/A yollarından alınır; geçici 6
+  pencereleriyle otomatik toplama yapılmaz (R133), bu durumda inceleme notu üretilir.
+  Olağan yol daha erkense olağan yol seçilir (R134). KS tarihi değişmez.
 8. **Takvim ve durum**: kurumdan çıkış, KS, hak ederek tahliye, 107/6 denetim bitişi;
    gerekli kararlar; notların seviyesinden durum.
 
@@ -108,11 +123,11 @@ Kesirli gün yönü ve yönetmelikteki "ay" yöntemi kural tabanında kabul test
 Bu seçimler `zaman/profil.js` içinde adlandırılmış bir profilde toplanır ve her çıktıda
 `hesap_profili_id` olarak saklanır. Arayüz varsayılan profili kullanır.
 
-## 7. Test stratejisi (`npm test`, 237 test)
+## 7. Test stratejisi (`npm test`, 278 test)
 
 | Katman | Dosya | Kapsam |
 |---|---|---|
-| Dil uyumu | `tests/dil.test.js` | Kural tabanındaki 125 mantık testi (M001-M125), Kleene tabloları, tip ve güvenlik |
+| Dil uyumu | `tests/dil.test.js` | Kural tabanındaki 162 mantık testi (M001-M125, G10_001-G10_037), Kleene tabloları, tip ve güvenlik |
 | Veri | `tests/veri.test.js` | Kaynak doğrulaması, paket güncelliği, SHA-256, TCK yapısı, madde çözümleme |
 | Kabul | `tests/kabul.test.js` | 57 kabul senaryosu (K01-K57) |
 | Hesap | `tests/hesap.test.js` | Sayısal sonuçlar, dallar, profil, belirlenimcilik, politika ızgarası (672 vaka) |

@@ -141,6 +141,19 @@ export function kararBaglami(kt, ortam, { tekerrur, infaz = {} } = {}) {
     para: {
       kalan_infaz_gun_karsiligi_tam_odendi_dogrulandi: vaka.cek.kalan_infaz_gun_karsiligi_tam_odendi_dogrulandi,
     },
+    hesap: { tarihi: ortam.hesapTarihi },
+    // Geçici 10/6 anlık durum alanları: zaman çizelgesinden türetilir (hesap/ds.js);
+    // bağlamda belirsiz bırakılır, tarihler hesap katmanında üretilir.
+    g10: {
+      kapalida_en_az_bir_ay_tamam: null,
+      kapalida_en_az_uc_ay_tamam: null,
+      normal_aciga_ayrilmaya_uc_yil_veya_az: null,
+      sure_disindaki_acik_kurum_engeli_yok: null,
+      acik_kurumda_bulunma_hukuken_uygun: null,
+      acikta_en_az_uc_ay_tamam: null,
+      takvim_ve_mahsup_profili_dogrulandi: null,
+      normal_DSden_uc_yil_once_tarihi: null,
+    },
     _kanuni_ks_yasagi: kanuni,
   };
 }

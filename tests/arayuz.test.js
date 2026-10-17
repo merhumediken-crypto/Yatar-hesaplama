@@ -22,7 +22,7 @@ function dosya(ek = {}) {
   });
 }
 const hesap = (d) => hesapla(kt, vakaKur(d, HESAP));
-const ozet = (d, anahtar) => sonucOzeti(kt, d, hesap(d), anahtar);
+const ozet = (d, anahtar) => sonucOzeti(kt, d, hesap(d), anahtar, hesapla(kt, vakaKur(d, HESAP, { dsTalebi: false })));
 
 // Bütün ek soruları "Bilmiyorum" diyerek geçer; sorulan soru kimliklerini döner.
 function sorulanlar(d) {
@@ -183,4 +183,23 @@ test('suç arama ve madde çözümleme', () => {
   assert.equal(sucAra('ruhsatsız silah')[0].kanun, 6136);
   assert.deepEqual(maddeCoz('87/2-d'), { madde: '87', fikra: '2', bent: 'd' });
   assert.equal(maddeCoz('yağma'), null);
+});
+
+test('31/07/2023 öncesi suç: geçici 10/6 ile 1 ay kapalı, 3 ay açık, sonra DS', () => {
+  const d = dosya({ suc_tarihi: '2023-01-01' });
+  const o = ozet(d);
+  assert.deepEqual([o.kapali, o.acik, o.ds], [30, 90, 450]);
+  const cikis = o.olaylar.find((e) => e.tur === 'cikis');
+  assert.equal(cikis.tarih, '2026-05-01');
+  assert.match(cikis.aciklama, /geçici 10\/6/);
+  assert.match(o.neden.cikis.metin, /Geçici 10\/6/);
+  assert.equal(o.neden.cikis.madde, 'U03:govde:gecici_10');
+  // Talep etmezse koşullu salıverilmede çıkar
+  assert.deepEqual(o.talepsiz, { cikis: '2027-07-25', icerde: 570, kapali: 30, acik: 540, ks: true });
+  assert.match(paylasimMetni(d, o), /talep etmezse: 25\.07\.2027 tarihinde koşullu salıverilme ile çıkar \(570 gün cezaevinde\)/);
+  // 10 yıl: kapalıda 3 ay, açığa geçiş normal tarihten (01.01.2027) önce
+  const uzun = ozet(dosya({ suc_tarihi: '2023-01-01', ceza: { yil: 10, ay: 0, gun: 0 }, suc: { kanun: 5237, madde: '141' } }));
+  assert.deepEqual([uzun.kapali, uzun.acik], [90, 275]);
+  assert.match(uzun.olaylar.find((e) => e.tur === 'acik').aciklama, /normalde 01\.01\.2027/);
+  assert.match(uzun.neden.kapali.metin, /Geçici 10\/6: kapalıda 3 ay/);
 });

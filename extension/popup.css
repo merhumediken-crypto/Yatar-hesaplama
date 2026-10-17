@@ -259,6 +259,8 @@ main { padding: 4px 16px 24px; max-width: 1180px; margin: 0 auto; }
 .olay small { color: var(--soluk); font-size: 0.82rem; }
 .olay.vurgu b { color: var(--ds); font-size: 1.05rem; }
 .olay.vurgu .tarih { color: var(--ds); font-size: 0.95rem; }
+.talepsiz { font-size: 0.85rem; color: var(--soluk); background: var(--yuzey-2); border-radius: 10px; padding: 8px 12px; margin: 4px 0 6px; }
+.talepsiz b { color: var(--metin); font-weight: 600; }
 .not-satiri { font-size: 0.85rem; color: var(--sari); background: var(--sari-zemin); border-radius: 10px; padding: 8px 12px; margin: 4px 0 0; }
 .eylemler { display: flex; gap: 8px; margin-top: 12px; }
 .eylemler .dugme { flex: 1; }

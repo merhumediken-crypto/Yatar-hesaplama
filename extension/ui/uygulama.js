@@ -20,6 +20,7 @@ const durum = {
   kt: null,
   dosya: bosDosya(),
   cikti: null,
+  talepsiz: null, // aynı dosya, DS talebi olmadan
   ozet: null,
   aktif: null, // ekrandaki soru
   duzenlenen: null, // avukatın değiştirmek için seçtiği soru
@@ -43,9 +44,11 @@ const veriYukle = async (dosya) => {
 function hesapYap() {
   const d = durum.dosya;
   durum.cikti = null;
+  durum.talepsiz = null;
   if (hesaplanabilir(d)) {
     try {
       durum.cikti = hesapla(durum.kt, vakaKur(d, T.bugunIstanbul()));
+      durum.talepsiz = hesapla(durum.kt, vakaKur(d, T.bugunIstanbul(), { dsTalebi: false }));
     } catch (hata) {
       console.error(hata);
       bildir(`Hesap hatası: ${hata.message}`);
@@ -54,7 +57,7 @@ function hesapYap() {
 }
 
 function sonucuCiz() {
-  durum.ozet = sonucOzeti(durum.kt, durum.dosya, durum.cikti, durum.gorunen);
+  durum.ozet = sonucOzeti(durum.kt, durum.dosya, durum.cikti, durum.gorunen, durum.talepsiz);
   const onSonuc = !!durum.aktif && TEMEL_SORULAR.includes(durum.aktif) && !durum.aktif.cevaplandi(durum.dosya);
   sonucCiz(durum.ozet, { gorunen: durum.gorunen, acikNeden: durum.acikNeden, paylasVar, onSonuc });
 }

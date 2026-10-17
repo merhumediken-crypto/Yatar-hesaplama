@@ -42,7 +42,6 @@ class SenaryoKaydi {
     this.acik_kurum = null;
     this.ds_yollari = [];
     this.secilen_ds_yolu = null;
-    this.alternatif_yollar = [];
     this.kurumda_kalis_gun = null;
     this.toplam_infaz_gun = null;
     this.en_cok = false;
@@ -276,15 +275,12 @@ export function senaryoHesapla(kt, motor, ortam, derece) {
   for (const y of yollar) {
     if (y.uygun === true || y.ihtiyatli) S.kural_idleri.add(y.kural);
   }
-  const anaYollar = yollar.filter((y) => y.id !== 'gecici10_6');
-  const enIyi = enIyiDsYolu(anaYollar);
+  // Geçici 10/6 dahil bütün yollar karşılaştırılır; en erken uygun yol seçilir (R056, R134).
+  const enIyi = enIyiDsYolu(yollar);
   S.secilen_ds_yolu = enIyi ? enIyi.id : null;
-  const g10 = yollar.find((y) => y.id === 'gecici10_6');
-  if (g10?.uygun === true && g10.tarih && !g10.yarar_yok && (!enIyi || once(g10.tarih, enIyi.tarih))) {
-    S.alternatif_yollar.push({ ...g10, kurumda_kalis_gun: Math.max(0, gunFarki(ortam.baslama, g10.tarih)), durum: 'hukuki_inceleme_gerekli' });
-    S.kural_idleri.add('R055').add('R056');
-  }
-  for (const y of yollar) for (const n of y.notlar || []) if (!n.yalniz_alternatifte || S.alternatif_yollar.length) S.notlar.ekle(n.seviye, n.kod, n.mesaj, n.kurallar);
+  for (const y of yollar) for (const n of y.notlar || []) if (!n.yalniz_secilince || y === enIyi) S.notlar.ekle(n.seviye, n.kod, n.mesaj, n.kurallar);
+  if (enIyi?.id === 'gecici10_6') S.kural_idleri.add('R055').add('R132').add('R133').add('R134');
+  if (acik.kapali?.gecici10) S.kural_idleri.add('R130').add('R131');
 
   let cikis = ksTarihi;
   if (enIyi) {
@@ -362,7 +358,7 @@ function bitir(S) {
 
 // Belgeli bağlamda belirsiz kalan ve kullanıcının girebileceği alanlar. Zaman
 // çizelgesinden türetilen infaz kapıları ve dosyayla ilgisiz düğüm grupları hariç.
-const TURETILEN_ALAN = /^infaz\.(KSye_|aciga_ayrilma|iradesi_disinda|kurum$)/;
+const TURETILEN_ALAN = /^(infaz\.(KSye_|aciga_ayrilma|iradesi_disinda|kurum$)|g10\.|hesap\.)/;
 function belirsizKosullar(belgeli, sonuclar) {
   const cek = belgeli.ilam.kanun === 5941;
   const adliPara = belgeli.ilam.ceza_turu === 'adli_para';
