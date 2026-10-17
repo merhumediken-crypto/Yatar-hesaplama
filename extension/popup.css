@@ -259,6 +259,29 @@ main { padding: 4px 16px 24px; max-width: 1180px; margin: 0 auto; }
 .olay small { color: var(--soluk); font-size: 0.82rem; }
 .olay.vurgu b { color: var(--ds); font-size: 1.05rem; }
 .olay.vurgu .tarih { color: var(--ds); font-size: 0.95rem; }
+.mahsup-liste { display: grid; gap: 8px; }
+.mahsup-satir { border: 1.5px solid var(--cizgi); border-radius: 12px; padding: 10px; display: grid; gap: 8px; }
+.mahsup-ust { display: flex; gap: 8px; align-items: center; }
+.mahsup-ust select { flex: 1; min-height: 44px; border-radius: 10px; border: 1.5px solid var(--cizgi); background: var(--yuzey); padding: 6px 10px; font-weight: 600; }
+.mahsup-ust .sil { border: 0; background: var(--yuzey-2); color: var(--soluk); width: 36px; height: 36px; border-radius: 50%; }
+.mahsup-alanlar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.mahsup-alanlar .alan { min-width: 0; }
+.mahsup-alanlar input { min-height: 44px; font-size: 0.95rem; padding: 8px; min-width: 0; width: 100%; }
+.mahsup-alanlar .gun { grid-column: 1 / -1; grid-template-columns: auto 96px; align-items: center; justify-content: start; gap: 8px; }
+.mahsup-hesap { margin: 0; font-size: 0.82rem; color: var(--acik); font-weight: 600; }
+.mahsup-hesap:empty { display: none; }
+.dugme.ekle { justify-self: start; color: var(--ana); }
+.md-girdiler { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.md-girdiler .alan { min-width: 0; }
+.md-girdiler input { min-height: 44px; font-size: 0.95rem; padding: 8px; min-width: 0; width: 100%; }
+.md-tablo { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.md-tablo th, .md-tablo td { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--cizgi); }
+.md-tablo thead th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--soluk); }
+.md-tablo tbody th { font-weight: 600; }
+.fark { color: var(--uyari); font-weight: 700; white-space: nowrap; }
+.fark.ayni { color: var(--acik); }
+.silik { color: var(--silik); }
+.muddetname > :not(summary) { margin-left: 0; }
 .talepsiz { font-size: 0.85rem; color: var(--soluk); background: var(--yuzey-2); border-radius: 10px; padding: 8px 12px; margin: 4px 0 6px; }
 .talepsiz b { color: var(--metin); font-weight: 600; }
 .not-satiri { font-size: 0.85rem; color: var(--sari); background: var(--sari-zemin); border-radius: 10px; padding: 8px 12px; margin: 4px 0 0; }

@@ -13,7 +13,9 @@ Hukuki içerik **İnfaz Mevzuat Kural Tabanı 0.4.0-gecici10-butunlesik** dosyas
 | Bölüm | İçerik |
 |---|---|
 | **Cevaplar** | Verilen cevaplar kutucuk olarak durur; dokununca o soru yeniden açılır. "Bilmiyorum" cevapları kesik çizgilidir. |
-| **Soru kartı** | Sıradaki soru: kişinin durumu → suç tarihi → ceza → suç → tekerrür (1. tekerrürde önceki ceza) → giriş tarihi → gözaltı/tutukluluk → sonucu değiştiren ek sorular (fıkra, yaş, 0-6 yaş çocuklu kadın, sağlık raporu, mağdur…). |
+| **Soru kartı** | Sıradaki soru: kişinin durumu → suç tarihi → ceza → suç → tekerrür (1. tekerrürde önceki ceza) → giriş tarihi → mahsuplar → sonucu değiştiren ek sorular (fıkra, yaş, 0-6 yaş çocuklu kadın, sağlık raporu, mağdur…). |
+| **Mahsuplar (müddetname)** | Birden çok kayıt: gözaltı, tutukluluk, konutu terk etmeme (2 gün = 1 gün), kullanılan denetimli serbestlik. Her kayıt gün sayısı ya da tarih aralığıyla (iki uç dahil) girilir; çakışan aralıklar uyarılır. DS'den geri gönderilen hükümlü açık cezaevinde devam eder (105/A/6-7). |
+| **Müddetname ile karşılaştır** | Müddetnamedeki açığa ayrılma, DS'ye ayrılma, koşullu salıverilme ve bihakkın tahliye tarihleri girilir; hesapla farkı gün olarak gösterilir. |
 | **Sonuç** | Kapalı / açık / denetimli serbestlik gün sayıları, tarihli zaman çizelgesi (giriş → açığa geçiş → cezaevinden çıkış → koşullu salıverilme → ceza bitişi), tekerrürsüz / 1. / 2. tekerrür karşılaştırması, bilinmeyenler, hesabın adımları. Sayıya dokununca nedeni ve madde metni bağlantısı açılır. **Kopyala / Paylaş** müvekkile gönderilecek düz metni verir. |
 | **Mevzuat** | 13 tam metinde madde/kelime arama; kural kanıtı (SHA-256 tarayıcıda doğrulanır); hesabın dayandığı kurallar. |
 | **Süreler** | DS müdürlüğüne başvuru (5 gün), infaz işlemine şikâyet (15/30 gün), infaz hâkimliği kararına itiraz (2 hafta). |
@@ -66,7 +68,7 @@ scripts/              veri-derle.mjs · e2e.mjs · paketle.sh · ikon_uret.py
 ## Geliştirme
 
 ```sh
-npm test              # 278 test: dil uyumu (162), veri bütünlüğü, 57 kabul senaryosu, hesap, arayüz modelleri
+npm test              # 280 test: dil uyumu (162), veri bütünlüğü, 57 kabul senaryosu, hesap, arayüz modelleri
 npm run veri          # kaynak kural tabanından çalışma paketlerini derler
 npm run veri:kontrol  # paketlerin güncel olduğunu denetler
 npm run e2e           # gerçek Chromium'da telefon ve masaüstü boyutunda uçtan uca test

@@ -56,6 +56,12 @@ Bağımlılık yönü tek yönlüdür: `ui → cekirdek/index.js → alt modüll
 | `ui/ekran.js` | Cevap kutucukları, soru kartı ve sonuç çizimi. | var |
 | `ui/uygulama.js` | Durum, olaylar, kalıcı kayıt (`chrome.storage` yoksa `localStorage`). | var |
 
+Mahsup kayıtları (`dosya.mahsup`) gün ya da tarih aralığıdır; çekirdek aralığı iki uç dahil
+sayar, çakışmayı denetler (V08) ve konutu terk etmemeyi 2:1 uygular. Bu ilamda kullanılan
+denetimli serbestlik `denetimli_serbestlik` türüyle infazdan sayılır ve açık kurum planı
+"DS'den dönüş: açıkta devam" (105/A/6-7) olur. Müddetname karşılaştırması (`ozet.js →
+muddetnameKarsilastir`) hesap tarihleriyle girilen tarihleri gün farkıyla gösterir.
+
 Kapalı gün = giriş → açığa geçiş, açık gün = açığa geçiş → kurumdan çıkış; ikisinin
 toplamı çekirdeğin `kurumda_kalis_gun` değerine eşittir. Açığa geçiş çıkıştan sonraysa
 (ör. geçici 6/1 ile kapalıdan DS) bütün süre kapalıda sayılır.
@@ -123,7 +129,7 @@ Kesirli gün yönü ve yönetmelikteki "ay" yöntemi kural tabanında kabul test
 Bu seçimler `zaman/profil.js` içinde adlandırılmış bir profilde toplanır ve her çıktıda
 `hesap_profili_id` olarak saklanır. Arayüz varsayılan profili kullanır.
 
-## 7. Test stratejisi (`npm test`, 278 test)
+## 7. Test stratejisi (`npm test`, 280 test)
 
 | Katman | Dosya | Kapsam |
 |---|---|---|

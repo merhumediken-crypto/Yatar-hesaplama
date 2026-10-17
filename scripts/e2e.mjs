@@ -160,6 +160,34 @@ try {
   assert.match(await page.locator('.neden-kutu').innerText(), /Geçici 10\/6/);
   await goruntu(page, '2b-telefon-gecici10');
 
+  // 6c) Müddetname: tarih aralıklı tutukluluk + kullanılan DS, sonra karşılaştırma
+  await page.click('[data-duzenle="mahsup"]');
+  assert.equal(await page.locator('.mahsup-satir').count(), 2, 'boş gözaltı ve tutukluluk satırı');
+  await page.locator('.mahsup-satir >> nth=0').locator('[data-m="gun"]').fill('2');
+  const tut = page.locator('.mahsup-satir >> nth=1');
+  await tut.locator('[data-m="baslangic"]').fill('2025-01-01');
+  await tut.locator('[data-m="bitis"]').fill('2025-01-31');
+  assert.match(await tut.locator('.mahsup-hesap').innerText(), /31 gün cezadan düşülür/);
+  await page.click('[data-mahsup-ekle]');
+  const ds = page.locator('.mahsup-satir >> nth=2');
+  await ds.locator('[data-m="tur"]').selectOption('denetimli_serbestlik');
+  await ds.locator('[data-m="gun"]').fill('60');
+  assert.equal(await tut.locator('[data-m="bitis"]').inputValue(), '2025-01-31', 'satır eklerken değerler korunur');
+  assert.ok((await page.evaluate(() => document.documentElement.scrollWidth)) <= TELEFON.width, 'telefonda yatay taşma yok');
+  await goruntu(page, '2c-telefon-mahsup');
+  await devam();
+  assert.match(await page.locator('#cevaplar').innerText(), /Mahsup 93 gün · DS dahil/);
+  await page.click('[data-neden="kapali"]');
+  assert.match(await page.locator('.neden-kutu').innerText(), /Denetimli serbestlikten geri gönderilen/);
+  await page.click('.muddetname summary');
+  await page.fill('[data-md="ks"]', '2030-01-01');
+  assert.match(await page.locator('#mdTablo').innerText(), /01\.01\.2030/);
+  assert.match(await page.locator('#mdTablo').innerText(), /\+\d+ gün/);
+  await goruntu(page, '2d-telefon-muddetname');
+  await page.fill('[data-md="ks"]', '');
+  await page.click('[data-duzenle="mahsup"]');
+  await page.click('[data-mahsup-yok]');
+
   // 7) Kayıt: sayfa yenilenince dosya geri gelir
   await page.reload();
   await page.waitForSelector('body.hazir');

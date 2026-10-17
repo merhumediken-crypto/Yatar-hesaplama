@@ -1,10 +1,10 @@
 // Arayüz modelleri: dosya → vaka, sıralı sorular, sonuç özeti ve paylaşım metni.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hesapla } from '../extension/cekirdek/index.js';
-import { bosDosya, dosyaYukle, vakaKur, ozelDurum, kapsamDisi, hesaplanabilir } from '../extension/ui/dosya.js';
+import { hesapla, takvim as T } from '../extension/cekirdek/index.js';
+import { bosDosya, dosyaYukle, vakaKur, ozelDurum, kapsamDisi, hesaplanabilir, mahsupGunu } from '../extension/ui/dosya.js';
 import { sonrakiSoru, cevapla, bilinmiyorCevabi, soru, cevaplar, varsayimSatirlari, TEMEL_SORULAR } from '../extension/ui/sorular.js';
-import { sonucOzeti, paylasimMetni, kurumBolumleri } from '../extension/ui/ozet.js';
+import { sonucOzeti, paylasimMetni, kurumBolumleri, muddetnameKarsilastir } from '../extension/ui/ozet.js';
 import { sucAra, maddeCoz } from '../extension/ui/tck-maddeleri.js';
 import { kt, HESAP } from './yardimci.js';
 
@@ -17,7 +17,7 @@ function dosya(ek = {}) {
     suc: { kanun: 5237, madde: '142', fikra: null, bent: null },
     tekerrur: 'yok',
     giris: { tur: 'tarih', tarih: '2026-01-01' },
-    mahsup: { gozalti: 0, tutukluluk: 0 },
+    mahsup: [],
     ...ek,
   });
 }
@@ -56,9 +56,14 @@ test('dosya → vaka: iyi hâl ve DS talebi açık, kast maddeden, örgüt/terö
 });
 
 test('dosya → vaka: giriş bugün, mahsup, 108/2 cezası, paradan çevrilen hapis', () => {
-  const v = vakaKur(dosya({ giris: { tur: 'bugun' }, mahsup: { gozalti: 3, tutukluluk: 40 }, tekerrur: 'birinci', esas_ceza: { yil: 1, ay: 0, gun: 0 } }), HESAP);
+  const v = vakaKur(dosya({ giris: { tur: 'bugun' }, mahsup: [{ tur: 'gozalti', gun: 3 }, { tur: 'tutukluluk', baslangic: '2025-01-01', bitis: '2025-02-09' }], tekerrur: 'birinci', esas_ceza: { yil: 1, ay: 0, gun: 0 } }), HESAP);
   assert.equal(v.infaza_baslama_tarihi, HESAP);
-  assert.deepEqual(v.mahsup_kayitlari, [{ tur: 'gozalti', gun: 3 }, { tur: 'tutukluluk', gun: 40 }]);
+  assert.deepEqual(v.mahsup_kayitlari, [
+    { kayit_id: 'M1', tur: 'gozalti', gun: 3 },
+    { kayit_id: 'M2', tur: 'tutukluluk', baslangic: '2025-01-01', bitis: '2025-02-09' },
+  ]);
+  // Faz 1 biçimindeki kayıt da okunur
+  assert.deepEqual(vakaKur(dosya({ mahsup: { gozalti: 2, tutukluluk: 0 } }), HESAP).mahsup_kayitlari, [{ kayit_id: 'M1', tur: 'gozalti', gun: 2 }]);
   assert.deepEqual(v.tekerrure_esas_en_agir_ceza, { yil: 1, ay: 0, gun: 0 });
   const p = vakaKur(dosya({ ceza_turu: 'adli_paradan_cevrilen_hapis', ceza: { yil: 0, ay: 6, gun: 0 } }), HESAP).suclar_ve_ilamlar[0];
   assert.equal(p.infazdaki_ceza_turu, 'adli_paradan_cevrilen_hapis');
@@ -78,7 +83,7 @@ test('temel sorular sırayla sorulur', () => {
   const sira = [];
   for (let s = sonrakiSoru(kt, d, HESAP, null); s && TEMEL_SORULAR.includes(s); s = sonrakiSoru(kt, d, HESAP, hesaplanabilir(d) ? hesap(d) : null)) {
     sira.push(s.id);
-    const cevap = { konum: 'cezaevinde', suc_tarihi: '2025-07-01', ceza: { ceza_turu: 'sureli_hapis', ceza: { yil: 2, ay: 0, gun: 0 } }, tekerrur: 'birinci', esas_ceza: { ceza: { yil: 1, ay: 0, gun: 0 } }, giris: { tur: 'tarih', tarih: '2026-03-01' }, mahsup: { gozalti: 0, tutukluluk: 0 } }[s.id];
+    const cevap = { konum: 'cezaevinde', suc_tarihi: '2025-07-01', ceza: { ceza_turu: 'sureli_hapis', ceza: { yil: 2, ay: 0, gun: 0 } }, tekerrur: 'birinci', esas_ceza: { ceza: { yil: 1, ay: 0, gun: 0 } }, giris: { tur: 'tarih', tarih: '2026-03-01' }, mahsup: [] }[s.id];
     if (cevap === undefined) bilinmiyorCevabi(d, s.id);
     else cevapla(d, s, cevap);
   }
@@ -131,7 +136,7 @@ test('sonuç özeti: doğrudan açık, mahsup, 2005 öncesi ve boş dosya', () =
   const kisa = ozet(dosya({ ceza: { yil: 1, ay: 0, gun: 0 }, suc: { kanun: 5237, madde: '141' } }));
   assert.deepEqual([kisa.kapali, kisa.acik], [0, 18]);
   assert.equal(kisa.olaylar[0].baslik, 'Açık cezaevine giriş');
-  const mahsuplu = ozet(dosya({ mahsup: { gozalti: 0, tutukluluk: 20 } }));
+  const mahsuplu = ozet(dosya({ mahsup: [{ tur: 'tutukluluk', gun: 20 }] }));
   assert.equal(mahsuplu.kapali, 10, 'tutuklulukta geçen 20 gün kapalıdaki 1 aydan düşülür');
   assert.match(mahsuplu.olaylar[0].aciklama, /20 gün düşüldü/);
   const eski = dosya({ suc_tarihi: '2004-12-31' });
@@ -202,4 +207,44 @@ test('31/07/2023 öncesi suç: geçici 10/6 ile 1 ay kapalı, 3 ay açık, sonra
   assert.deepEqual([uzun.kapali, uzun.acik], [90, 275]);
   assert.match(uzun.olaylar.find((e) => e.tur === 'acik').aciklama, /normalde 01\.01\.2027/);
   assert.match(uzun.neden.kapali.metin, /Geçici 10\/6: kapalıda 3 ay/);
+});
+
+test('mahsup kayıtları: tarih aralığı, konutu terk etmeme 2:1, kullanılan DS', () => {
+  assert.deepEqual(mahsupGunu({ tur: 'tutukluluk', baslangic: '2025-01-01', bitis: '2025-01-31' }), { takvim: 31, dusulen: 31 });
+  assert.deepEqual(mahsupGunu({ tur: 'konutu_terk_etmeme', gun: 45 }), { takvim: 45, dusulen: 22 });
+  // 31 gün tutukluluk + 2 gün gözaltı: kapalıdaki 1 ay tamamen mahsupla karşılanır
+  const d = dosya({ mahsup: [{ tur: 'gozalti', gun: 2 }, { tur: 'tutukluluk', baslangic: '2025-01-01', bitis: '2025-01-31' }] });
+  const o = ozet(d);
+  assert.equal(hesap(d).senaryolar.yok.takvim.mahsup_gun, 33);
+  assert.equal(o.kapali, 0);
+  assert.equal(o.olaylar[0].tarih, '2026-01-01');
+  assert.match(cevaplar(d).find((c) => c.id === 'mahsup').metin, /Mahsup 33 gün/);
+  // Kullanılan DS: infazdan sayılır, hükümlü açık cezaevinde devam eder (105/A/6-7)
+  const ds = dosya({ mahsup: [{ tur: 'denetimli_serbestlik', baslangic: '2025-03-01', bitis: '2025-05-29' }] });
+  const od = ozet(ds);
+  assert.equal(od.kapali, 0);
+  assert.match(od.neden.kapali.metin, /105\/A\/6-7/);
+  assert.equal(hesap(ds).senaryolar.yok.takvim.kosullu_saliverilme, T.gunEkle('2027-07-25', -90));
+  assert.match(cevaplar(ds).find((c) => c.id === 'mahsup').metin, /DS dahil/);
+  // Mahsup çıkış şartını girişten önce karşılarsa çıkış giriş günü gösterilir
+  const fazla = ozet(dosya({ suc_tarihi: '2023-01-01', mahsup: [{ tur: 'tutukluluk', gun: 200 }] }));
+  const cikis = fazla.olaylar.find((e) => e.tur === 'cikis');
+  assert.equal(cikis.tarih, '2026-01-01');
+  assert.ok(cikis.onceden);
+  assert.equal(fazla.icerde, 0);
+  assert.equal(fazla.ds, T.gunFarki('2026-01-01', hesap(dosya({ suc_tarihi: '2023-01-01', mahsup: [{ tur: 'tutukluluk', gun: 200 }] })).senaryolar.yok.takvim.kosullu_saliverilme));
+  assert.equal(fazla.karsilastirma[0].cikis, '2026-01-01');
+});
+
+test('müddetname karşılaştırması: fark gün olarak, müddetname daha geçse artı', () => {
+  const o = ozet(dosya());
+  const r = muddetnameKarsilastir(o, { ks: '2027-07-27', cikis: '2026-07-25' });
+  assert.deepEqual(r.map((x) => [x.id, x.hesap, x.fark]), [
+    ['acik', '2026-01-31', null],
+    ['cikis', '2026-07-25', 0],
+    ['ks', '2027-07-25', 2],
+    ['bitis', '2029-02-15', null],
+  ]);
+  assert.deepEqual(muddetnameKarsilastir({ durum: 'bos' }, {}), []);
+  assert.deepEqual(dosyaYukle({ ...bosDosya(), muddetname: { ks: '2027-07-27' } }).muddetname, { ks: '2027-07-27' });
 });

@@ -6,9 +6,9 @@ import { hesapla, KuralTabani, MevzuatDeposu, takvim as T } from '../cekirdek/in
 import { $, depo, sayfaAc, bildir } from './yardimci.js';
 import { bosDosya, dosyaYukle, hesaplanabilir, kapsamDisi, ozelDurum, vakaKur, SURELI_TURLER } from './dosya.js';
 import { TEMEL_SORULAR, TUM_SORULAR, soru, sonrakiSoru, cevaplar, cevapla, bilinmiyorCevabi, gosterilenSenaryo } from './sorular.js';
-import { sonucOzeti, paylasimMetni } from './ozet.js';
+import { sonucOzeti, paylasimMetni, muddetnameKarsilastir } from './ozet.js';
 import { maddeCoz } from './tck-maddeleri.js';
-import { cevaplarCiz, soruCiz, soruDegeri, sonucCiz } from './ekran.js';
+import { cevaplarCiz, soruCiz, soruDegeri, sonucCiz, mahsupOku, mahsupTaslagi, mahsupHesapMetni, muddetnameTablosu } from './ekran.js';
 import { mevzuatKur, aramaYap, maddeGoster, kuralGoster, dayanaklarCiz } from './mevzuat-gorunumu.js';
 import { surelerCiz } from './sureler.js';
 
@@ -28,6 +28,7 @@ const durum = {
   acikNeden: null,
   sorgu: '',
   girisTarihli: false,
+  mahsupTaslak: null, // mahsup sorusunda düzenlenen satırlar
   uyari: null,
 };
 
@@ -59,7 +60,8 @@ function hesapYap() {
 function sonucuCiz() {
   durum.ozet = sonucOzeti(durum.kt, durum.dosya, durum.cikti, durum.gorunen, durum.talepsiz);
   const onSonuc = !!durum.aktif && TEMEL_SORULAR.includes(durum.aktif) && !durum.aktif.cevaplandi(durum.dosya);
-  sonucCiz(durum.ozet, { gorunen: durum.gorunen, acikNeden: durum.acikNeden, paylasVar, onSonuc });
+  const md = durum.dosya.muddetname;
+  sonucCiz(durum.ozet, { gorunen: durum.gorunen, acikNeden: durum.acikNeden, paylasVar, onSonuc, md, muddetname: muddetnameKarsilastir(durum.ozet, md) });
 }
 
 function siradakiSorular(d) {
@@ -69,6 +71,9 @@ function siradakiSorular(d) {
 function soruyuCiz() {
   const d = durum.dosya;
   const s = durum.aktif;
+  if (s?.id === 'mahsup' && !durum.mahsupTaslak) {
+    durum.mahsupTaslak = d.mahsup?.length ? d.mahsup.map((k) => ({ ...k })) : [{ tur: 'gozalti' }, { tur: 'tutukluluk' }];
+  }
   const temel = TEMEL_SORULAR.filter((x) => x.gorunur(d));
   const sira = siradakiSorular(d);
   cevaplarCiz(cevaplar(d), s?.id);
@@ -80,6 +85,7 @@ function soruyuCiz() {
     hesaplanabilir: hesaplanabilir(d) && !kapsamDisi(d),
     sorgu: durum.sorgu,
     girisTarihli: durum.girisTarihli,
+    mahsupTaslak: durum.mahsupTaslak,
     uyari: durum.uyari,
   });
 }
@@ -98,6 +104,7 @@ function ilerle() {
   durum.duzenlenen = null;
   durum.sorgu = '';
   durum.girisTarihli = false;
+  durum.mahsupTaslak = null;
   durum.uyari = null;
   durum.gorunen = null;
   yenile();
@@ -136,6 +143,10 @@ function devam() {
   const d = durum.dosya;
   const deger = soruDegeri(s, d);
   if (deger === null) {
+    if (s.tur === 'mahsup') {
+      durum.mahsupTaslak = mahsupTaslagi();
+      return uyar(mahsupOku().hata);
+    }
     uyar({ tarih: 'Geçerli bir tarih girin.', giris: 'Geçerli bir tarih girin.', ceza: 'Ceza süresini girin (yıl, ay veya gün).', mahsup: 'Gün sayılarını tam sayı olarak girin.', fikra: 'Fıkra veya bent girin ya da "Bilmiyorum" deyin.' }[s.tur]);
     return;
   }
@@ -221,12 +232,27 @@ function soruKartiTiklama(e) {
     return;
   }
   if (ds.mahsupYok) {
-    cevapla(d, s, { gozalti: 0, tutukluluk: 0 });
+    cevapla(d, s, []);
     return ilerle();
+  }
+  if (ds.mahsupEkle) {
+    durum.mahsupTaslak = [...mahsupTaslagi(), { tur: 'tutukluluk' }];
+    return soruyuCiz();
+  }
+  if (ds.mahsupSil !== undefined) {
+    durum.mahsupTaslak = mahsupTaslagi().filter((_, i) => i !== Number(ds.mahsupSil));
+    return soruyuCiz();
   }
 }
 
 function soruKartiGirdi(e) {
+  const satir = e.target.closest('.mahsup-satir');
+  if (satir) {
+    // Yalnız satırın hesap metni güncellenir; odak kaybolmasın diye kart yeniden çizilmez.
+    durum.mahsupTaslak = mahsupTaslagi();
+    satir.querySelector('.mahsup-hesap').textContent = mahsupHesapMetni(durum.mahsupTaslak[Number(satir.dataset.satir)]);
+    return;
+  }
   if (e.target.id !== 's_ara') return;
   durum.sorgu = e.target.value;
   const konum = e.target.selectionStart;
@@ -330,6 +356,17 @@ function olaylariBagla() {
   $('soruKarti').addEventListener('input', soruKartiGirdi);
   $('soruKarti').addEventListener('keydown', soruKartiTus);
   $('sonuc').addEventListener('click', sonucTiklama);
+  // Müddetname tarihleri: yalnız tablo yeniden çizilir (odak korunur).
+  $('sonuc').addEventListener('input', (e) => {
+    const id = e.target.dataset.md;
+    if (!id) return;
+    const v = e.target.value;
+    if (v && !T.gecerliTarih(v)) return;
+    if (v) durum.dosya.muddetname[id] = v;
+    else delete durum.dosya.muddetname[id];
+    depo.yaz(DOSYA_ANAHTARI, durum.dosya);
+    $('mdTablo').innerHTML = muddetnameTablosu(muddetnameKarsilastir(durum.ozet, durum.dosya.muddetname));
+  });
   $('cevaplar').addEventListener('click', (e) => {
     const c = e.target.closest('[data-duzenle]');
     if (!c) return;

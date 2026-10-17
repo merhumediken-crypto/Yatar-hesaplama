@@ -45,6 +45,8 @@ function nedenler(kt, S, bol) {
   const a = S.acik_kurum;
   if (S.yol === 'para_hapis' || S.yol === 'cek_5_11') {
     n.kapali = { metin: 'Adli paradan çevrilen hapis doğrudan açık cezaevinde infaz edilir (5275 m.14/2-c).', madde: maddeBul(kt, 'R060') };
+  } else if (a?.ds_donus) {
+    n.kapali = { metin: a.dogrudan.neden, madde: maddeBul(kt, 'R040') };
   } else if (a?.yol === 'dogrudan') {
     n.kapali = { metin: 'Ceza doğrudan açık cezaevinde başlar (5275 m.14/2).', madde: maddeBul(kt, 'R060') };
   } else if (a?.yol === 'yasak') {
@@ -95,11 +97,14 @@ function olaylar(d, S, bol) {
   }
   const ds = t.DSye_hak_kazanma && t.ds_suresi_gun > 0;
   if (t.kurumdan_cikis) {
+    // Mahsup çıkış şartlarını girişten önce karşılamışsa çıkış giriş günüdür.
+    const onceden = T.once(t.kurumdan_cikis, t.infaza_baslama);
     liste.push({
       tur: 'cikis',
-      tarih: t.kurumdan_cikis,
+      tarih: onceden ? t.infaza_baslama : t.kurumdan_cikis,
+      onceden,
       baslik: ds ? 'Cezaevinden çıkış · denetimli serbestlik' : t.kosullu_saliverilme ? 'Cezaevinden çıkış · koşullu salıverilme' : 'Cezaevinden çıkış',
-      aciklama: S.secilen_ds_yolu === 'gecici10_6' ? 'En yakın tahliye · geçici 10/6 (3 yıl erken) · iyi hâl ve talep şartıyla' : ds || t.kosullu_saliverilme ? 'En yakın tahliye · iyi hâl şartıyla' : 'Ceza bitimi',
+      aciklama: onceden ? 'Şartlar mahsupla girişte oluşmuş · iyi hâl ve talep şartıyla' : S.secilen_ds_yolu === 'gecici10_6' ? 'En yakın tahliye · geçici 10/6 (3 yıl erken) · iyi hâl ve talep şartıyla' : ds || t.kosullu_saliverilme ? 'En yakın tahliye · iyi hâl şartıyla' : 'Ceza bitimi',
       vurgu: true,
     });
   }
@@ -129,7 +134,7 @@ function karsilastirma(c, secili) {
       anahtar,
       baslik: BASLIK[anahtar],
       gun: gecerli ? S.kurumda_kalis_gun : null,
-      cikis: gecerli ? S.takvim.kurumdan_cikis : null,
+      cikis: gecerli ? gec(S.takvim.kurumdan_cikis, S.takvim.infaza_baslama) : null,
       en_cok: !!S?.en_cok,
       neden: gecerli ? null : S?.neden || 'Hesaplanamadı',
       secili: anahtar === secili,
@@ -166,14 +171,38 @@ export function sonucOzeti(kt, d, c, anahtar = null, talepsiz = null) {
     en_cok: S.en_cok,
     kapali: bol.kapali,
     acik: bol.acik,
-    ds: t.DSye_hak_kazanma ? t.ds_suresi_gun : 0,
+    ds: t.DSye_hak_kazanma && t.kosullu_saliverilme ? fark(gec(t.kurumdan_cikis, t.infaza_baslama), t.kosullu_saliverilme) : 0,
     icerde: S.kurumda_kalis_gun,
     neden: nedenler(kt, S, bol),
     olaylar: olaylar(d, S, bol),
     dikkat: dikkatNotlari(c, S),
     adimlar: S.izler.map((i) => `${i.adim}: ${i.aciklama}`),
     talepsiz: talepsizOzet(S, talepsiz?.senaryolar?.[secili]),
+    tarihler: {
+      acik: S.acik_kurum?.yol === 'dogrudan' || S.yol === 'para_hapis' || S.yol === 'cek_5_11' ? t.infaza_baslama : bol.acikTarih,
+      cikis: t.kurumdan_cikis && gec(t.kurumdan_cikis, t.infaza_baslama),
+      ks: t.kosullu_saliverilme,
+      bitis: t.hak_ederek_tahliye,
+    },
   };
+}
+
+// [kimlik, giriş etiketi, tablo etiketi]
+export const MUDDETNAME_KALEMLERI = [
+  ['acik', 'Açık kuruma ayrılma', 'Açığa ayrılma'],
+  ['cikis', 'Denetimli serbestliğe ayrılma', 'DS\'ye ayrılma'],
+  ['ks', 'Koşullu salıverilme', 'Koşullu salıverilme'],
+  ['bitis', 'Hak ederek tahliye', 'Bihakkın tahliye'],
+];
+
+// Müddetnamedeki tarihlerle hesabın karşılaştırması. fark > 0: müddetname daha geç.
+export function muddetnameKarsilastir(o, md = {}) {
+  if (o?.durum !== 'tamam') return [];
+  return MUDDETNAME_KALEMLERI.map(([id, ad, kisa]) => {
+    const hesap = o.tarihler[id] || null;
+    const muddetname = md[id] || null;
+    return { id, ad, kisa, hesap, muddetname, fark: hesap && muddetname ? T.gunFarki(hesap, muddetname) : null };
+  });
 }
 
 // Hükümlü DS talep etmezse: çıkış koşullu salıverilmede (yoksa ceza bitiminde).

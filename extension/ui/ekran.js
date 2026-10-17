@@ -5,7 +5,7 @@ import { takvim as T } from '../cekirdek/index.js';
 import { $, esc } from './yardimci.js';
 import { metin, TEMEL_SORULAR } from './sorular.js';
 import { sucAra, maddeCoz } from './tck-maddeleri.js';
-import { ozelDurum } from './dosya.js';
+import { ozelDurum, mahsupGunu, MAHSUP_TURLERI } from './dosya.js';
 import { sureYaklasik } from './ozet.js';
 
 const tr = (s) => (s ? T.trTarih(s) : '—');
@@ -99,14 +99,67 @@ function govde(s, d, durum) {
         <input type="date" id="s_tarih" class="buyuk-girdi${tarihli ? '' : ' gizli'}" value="${esc(d.giris?.tarih || '')}">`;
     }
     case 'mahsup':
-      return `<div class="secenekler iki"><button type="button" class="secenek${d.mahsup && !d.mahsup.gozalti && !d.mahsup.tutukluluk ? ' secili' : ''}" data-mahsup-yok="1"><b>Yok</b></button></div>
-        <div class="ceza-girdi">${sayiAlani('s_gozalti', 'gün gözaltı', d.mahsup?.gozalti)}${sayiAlani('s_tutukluluk', 'gün tutukluluk', d.mahsup?.tutukluluk)}</div>`;
+      return `<div class="secenekler iki"><button type="button" class="secenek${d.mahsup && !d.mahsup.length ? ' secili' : ''}" data-mahsup-yok="1"><b>Yok</b><small>mahsup yok</small></button></div>
+        <div class="mahsup-liste">${(durum.mahsupTaslak || []).map(mahsupSatiri).join('')}</div>
+        <button type="button" class="dugme hafif ekle" data-mahsup-ekle="1">＋ Kayıt ekle</button>`;
     case 'fikra':
       return `<div class="ceza-girdi"><label class="sayi-alani"><input type="text" id="s_fikra" inputmode="numeric" placeholder="2" value="${esc(d.suc?.fikra || '')}"><span>fıkra</span></label>
         <label class="sayi-alani"><input type="text" id="s_bent" placeholder="a" value="${esc(d.suc?.bent || '')}"><span>bent</span></label></div>`;
     default:
       return '';
   }
+}
+
+function mahsupSatiri(k, i) {
+  const g = mahsupGunu(k);
+  return `<div class="mahsup-satir" data-satir="${i}">
+    <div class="mahsup-ust">
+      <select data-m="tur" aria-label="Tür">${MAHSUP_TURLERI.map(([t, ad]) => `<option value="${t}"${t === k.tur ? ' selected' : ''}>${esc(ad)}</option>`).join('')}</select>
+      <button type="button" class="sil" data-mahsup-sil="${i}" aria-label="Kaydı sil">✕</button>
+    </div>
+    <div class="mahsup-alanlar">
+      <label class="alan"><span>Başlangıç</span><input type="date" data-m="baslangic" value="${esc(k.baslangic || '')}"></label>
+      <label class="alan"><span>Bitiş</span><input type="date" data-m="bitis" value="${esc(k.bitis || '')}"></label>
+      <label class="alan gun"><span>veya gün</span><input type="number" data-m="gun" min="0" step="1" inputmode="numeric" placeholder="0" value="${k.gun || ''}"></label>
+    </div>
+    <p class="mahsup-hesap">${mahsupHesapMetni(k, g)}</p>
+  </div>`;
+}
+
+export function mahsupHesapMetni(k, g = mahsupGunu(k)) {
+  if (!g.takvim) return '';
+  return k.tur === 'konutu_terk_etmeme' ? `${g.takvim} gün → cezadan ${g.dusulen} gün düşülür` : `${g.takvim} gün cezadan düşülür`;
+}
+
+// Mahsup satırlarını okur. Boş satır atlanır; eksik/ters tarih → { hata }.
+export function mahsupOku() {
+  const liste = [];
+  for (const satir of document.querySelectorAll('.mahsup-satir')) {
+    const v = (m) => satir.querySelector(`[data-m="${m}"]`).value.trim();
+    const k = { tur: v('tur') };
+    const gun = v('gun');
+    const bas = v('baslangic');
+    const bit = v('bitis');
+    if (gun) {
+      const n = Number(gun);
+      if (!Number.isInteger(n) || n < 0) return { hata: 'Gün sayısını tam sayı olarak girin.' };
+      if (n > 0) liste.push({ ...k, gun: n });
+    } else if (bas || bit) {
+      if (!T.gecerliTarih(bas) || !T.gecerliTarih(bit)) return { hata: 'Tarih aralığının iki ucunu da girin ya da gün sayısı yazın.' };
+      if (bit < bas) return { hata: 'Bitiş tarihi başlangıçtan önce olamaz.' };
+      liste.push({ ...k, baslangic: bas, bitis: bit });
+    }
+  }
+  return { liste };
+}
+
+// Satırların ekrandaki hâli (girilen değerler kaybolmadan yeniden çizim için).
+export function mahsupTaslagi() {
+  return [...document.querySelectorAll('.mahsup-satir')].map((satir) => {
+    const v = (m) => satir.querySelector(`[data-m="${m}"]`).value.trim();
+    const gun = Number(v('gun'));
+    return { tur: v('tur'), baslangic: v('baslangic') || undefined, bitis: v('bitis') || undefined, gun: Number.isInteger(gun) && gun > 0 ? gun : undefined };
+  });
 }
 
 function mevcutSecim(s, d) {
@@ -168,8 +221,8 @@ export function soruDegeri(s, d) {
       return { ceza_turu: tur, ceza: c };
     }
     case 'mahsup': {
-      const m = { gozalti: sayi('s_gozalti'), tutukluluk: sayi('s_tutukluluk') };
-      return Object.values(m).some(Number.isNaN) ? null : m;
+      const m = mahsupOku();
+      return m.hata ? null : m.liste;
     }
     case 'fikra': {
       const fikra = $('s_fikra').value.trim();
@@ -222,7 +275,31 @@ function karsilastirmaHtml(o, gorunen) {
     .join('')}</div>${gorunen ? '<p class="ipucu">Karşılaştırma görünümü. Dosyanın kendi sonucuna dönmek için seçili kartlara dokunun.</p>' : ''}`;
 }
 
-export function sonucCiz(o, { gorunen = null, acikNeden = null, paylasVar = false, onSonuc = false } = {}) {
+export function muddetnameTablosu(satirlar) {
+  const farkli = satirlar.filter((r) => r.fark);
+  const govde = satirlar
+    .map((r) => {
+      const fark = r.fark === null ? '' : r.fark === 0 ? '<span class="fark ayni">aynı</span>' : `<span class="fark">${r.fark > 0 ? '+' : '−'}${Math.abs(r.fark)} gün</span>`;
+      return `<tr><th>${esc(r.kisa)}</th><td>${esc(tr(r.hesap))}</td><td>${r.muddetname ? esc(tr(r.muddetname)) : '<span class="silik">—</span>'}</td><td>${fark}</td></tr>`;
+    })
+    .join('');
+  return `<table class="md-tablo"><thead><tr><th></th><th>Hesap</th><th>Müddetname</th><th>Fark</th></tr></thead><tbody>${govde}</tbody></table>
+    ${farkli.length ? '<p class="ipucu">Fark varsa önce giriş tarihini ve mahsupları (gözaltı, tutukluluk, kullanılan DS) kontrol edin. Bu araçta ay 30 gün sayılır, kesirli gün aşağı yuvarlanır. "+" müddetnamenin daha geç olduğunu gösterir.</p>' : ''}`;
+}
+
+function muddetnameKarti(satirlar, md) {
+  if (!satirlar.length) return '';
+  const dolu = Object.values(md || {}).some(Boolean);
+  return `<details class="katlanir muddetname"${dolu ? ' open' : ''}><summary>Müddetname ile karşılaştır</summary>
+    <p class="ipucu">Müddetnamedeki tarihleri girin; hesapla farkı gün olarak görünür.</p>
+    <div class="md-girdiler">${satirlar
+      .map((r) => `<label class="alan"><span>${esc(r.ad)}</span><input type="date" data-md="${r.id}" value="${esc(r.muddetname || '')}"></label>`)
+      .join('')}</div>
+    <div id="mdTablo">${muddetnameTablosu(satirlar)}</div>
+  </details>`;
+}
+
+export function sonucCiz(o, { gorunen = null, acikNeden = null, paylasVar = false, onSonuc = false, muddetname = [], md = {} } = {}) {
   const el = $('sonuc');
   if (o.durum === 'bos' || o.durum === 'kapsam_disi') {
     el.innerHTML = `<div class="sonuc-bos${o.durum === 'kapsam_disi' ? ' kapsam-disi' : ''}"><p>${esc(o.mesaj)}</p></div>`;
@@ -257,6 +334,7 @@ export function sonucCiz(o, { gorunen = null, acikNeden = null, paylasVar = fals
       </div>
     </section>`);
   }
+  if (!gorunen) parca.push(muddetnameKarti(muddetname, md));
   parca.push(karsilastirmaHtml(o, gorunen));
   if (o.varsayimlar.length) {
     parca.push(`<div class="varsayimlar"><h3>Bilinmeyenler</h3><ul>${o.varsayimlar.map((v) => `<li>${esc(v)}</li>`).join('')}</ul></div>`);

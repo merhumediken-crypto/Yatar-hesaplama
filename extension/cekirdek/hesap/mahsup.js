@@ -1,6 +1,8 @@
 // Mahsup (TCK 63; CMK 109/6; R004).
 //  - Gözaltı ve tutuklulukta geçen her gün bir gün sayılır.
 //  - Konutu terk etmeme adli kontrolünde geçen her iki gün bir gün sayılır (CMK 109/6, 7331).
+//  - Bu ilamın infazı sırasında denetimli serbestlikte geçen süre infazdan sayılır; DS'den geri
+//    gönderilen hükümlü açık kurumda devam eder, KS tarihi değişmez (5275 m.105/A/6-7).
 //  - Aynı takvim günü iki kez sayılamaz (V08); aralıklar verilmişse çakışma denetlenir.
 
 import { Kesir } from '../zaman/rasyonel.js';
@@ -11,6 +13,7 @@ const ORANLAR = {
   gozalti: { oran: new Kesir(1), etiket: 'Gözaltı', kural: 'R004' },
   tutukluluk: { oran: new Kesir(1), etiket: 'Tutukluluk', kural: 'R004' },
   konutu_terk_etmeme: { oran: new Kesir(1, 2), etiket: 'Konutu terk etmeme (2 gün = 1 gün)', kural: 'R004' },
+  denetimli_serbestlik: { oran: new Kesir(1), etiket: 'Denetimli serbestlikte geçen süre', kural: 'R040' },
   diger: { oran: new Kesir(1), etiket: 'Diğer özgürlük kısıtlaması', kural: 'R004' },
 };
 
@@ -36,6 +39,7 @@ export function mahsupHesapla(kt, kayitlar, profil, notlar) {
     const kabul = new Kesir(gun).carp(oran);
     ham = ham.topla(kabul);
     kalemler.push({ kayit_id: k.kayit_id, tur: k.tur, etiket: t.etiket, gun, oran, kabul, kaynak_karar: k.kaynak_karar });
+    if (k.tur === 'denetimli_serbestlik') notlar.ekle('bilgi', 'R040', `${k.kayit_id}: denetimli serbestlikte geçen ${gun} gün infazdan sayıldı. DS'den geri gönderilen hükümlü açık kurumda devam eder; koşullu salıverilme tarihi değişmez (5275 m.105/A/6-7).`, ['R040']);
     if (k.tur === 'diger') notlar.ekle('inceleme', 'E006', `${k.kayit_id}: "diğer" türündeki özgürlük kısıtlamasının mahsubu dayanak kararla doğrulanmalı.`, ['R004']);
   }
   // V08: aynı gün iki kez sayılamaz

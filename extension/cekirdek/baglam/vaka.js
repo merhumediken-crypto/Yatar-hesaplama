@@ -11,7 +11,7 @@ export const KAST_TURLERI = ['kasit', 'olasi_kast', 'taksir', 'bilincli_taksir',
 export const CEZA_TURLERI = ['sureli_hapis', 'muebbet', 'agirlastirilmis_muebbet', 'adli_para', 'adli_paradan_cevrilen_hapis', 'tazyik', 'disiplin_hapsi', 'zorlama_hapsi', 'diger'];
 export const TEKERRUR_DEGERLERI = ['yok', 'birinci', 'ikinci', '58_9_ozel_tehlikelilik', 'belirsiz'];
 export const MAGDUR_YAKINLIK = ['ustsoy', 'altsoy', 'es', 'kardes', 'diger'];
-export const MAHSUP_TURLERI = ['gozalti', 'tutukluluk', 'konutu_terk_etmeme', 'diger'];
+export const MAHSUP_TURLERI = ['gozalti', 'tutukluluk', 'konutu_terk_etmeme', 'denetimli_serbestlik', 'diger'];
 export const KURUM_TURLERI = ['kapali', 'acik', 'cocuk_egitimevi', 'disarida', 'bilinmiyor'];
 export const INFAZ_DURUMLARI = ['baslamadi', 'suruyor', 'tamamlandi', 'hukuken_kalkti', 'bilinmiyor'];
 

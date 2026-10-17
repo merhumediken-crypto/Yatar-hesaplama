@@ -141,6 +141,11 @@ export function gecici10ErkenAcik(kt, motor, ortam, baglam, normalTarih) {
 export function acikKurumPlani(kt, motor, ortam, baglam, ksTarihi) {
   const yasaklar = acikYasaklari(kt, baglam);
   if (yasaklar.length) return { yol: 'yasak', tarih: null, yasaklar, dogrudan: null, kapali: null };
+  // Bu ilamda denetimli serbestlikten geri gönderilen hükümlü açık kurumda devam eder (105/A/6-7).
+  if ((ortam.vaka.mahsup_kayitlari || []).some((m) => m.tur === 'denetimli_serbestlik')) {
+    const neden = 'Denetimli serbestlikten geri gönderilen hükümlü açık cezaevinde devam eder (5275 m.105/A/6-7).';
+    return { yol: 'dogrudan', tarih: ortam.E, ds_donus: true, dogrudan: { uygun: true, ihtiyatli: false, dugumler: [], neden, norm_cakismasi: null }, yasaklar: [], kapali: null, ihtiyatli: false };
+  }
   const dogrudan = dogrudanAcik(motor, baglam);
   if (dogrudan.uygun === true) {
     return { yol: 'dogrudan', tarih: ortam.E, dogrudan, yasaklar: [], kapali: null, ihtiyatli: dogrudan.ihtiyatli };

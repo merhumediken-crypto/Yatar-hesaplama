@@ -6,7 +6,7 @@
 // gösterilir. Bu modül DOM bilmez; Node'da test edilir.
 
 import { hesapla, takvim as T } from '../cekirdek/index.js';
-import { bilinmiyorMu, bilinmiyorYap, cezaVar, hesaplanabilir, kapsamDisi, klonla, vakaKur, ORGUT_MADDELERI, SURELI_TURLER } from './dosya.js';
+import { mahsupToplami, bilinmiyorMu, bilinmiyorYap, cezaVar, hesaplanabilir, kapsamDisi, klonla, vakaKur, ORGUT_MADDELERI, SURELI_TURLER } from './dosya.js';
 import { maddeEtiketi, sucAdi } from './tck-maddeleri.js';
 
 const tr = (s) => (s ? T.trTarih(s) : '');
@@ -137,8 +137,8 @@ export const TEMEL_SORULAR = [
   {
     id: 'mahsup',
     tur: 'mahsup',
-    baslik: 'Gözaltı veya tutuklulukta geçen süre var mı?',
-    aciklama: () => 'Bu dosyada gözaltı ve tutuklulukta geçen günler cezadan düşülür.',
+    baslik: 'Gözaltı, tutukluluk veya kullanılmış DS var mı?',
+    aciklama: () => 'Müddetnamedeki mahsuplar: gün sayısı ya da tarih aralığı (iki gün de dahil). Hepsi cezadan düşülür.',
     bilinmiyor: 'Gözaltı/tutukluluk bilinmiyor: mahsup yapılmadı.',
     gorunur: (d) => SURELI_TURLER.includes(d.ceza_turu) || d.ceza_turu === 'muebbet' || d.ceza_turu === 'agirlastirilmis_muebbet',
     cevaplandi: (d) => !!d.mahsup || bilinmiyorMu(d, 'mahsup'),
@@ -146,8 +146,10 @@ export const TEMEL_SORULAR = [
       d.mahsup = v;
     },
     ozet: (d) => {
-      const g = (d.mahsup?.gozalti || 0) + (d.mahsup?.tutukluluk || 0);
-      return d.mahsup ? (g ? `Mahsup ${g} gün` : 'Mahsup yok') : 'Mahsup bilinmiyor';
+      if (!d.mahsup) return 'Mahsup bilinmiyor';
+      const g = mahsupToplami(d.mahsup);
+      const ds = Array.isArray(d.mahsup) && d.mahsup.some((k) => k.tur === 'denetimli_serbestlik');
+      return g ? `Mahsup ${g} gün${ds ? ' · DS dahil' : ''}` : 'Mahsup yok';
     },
   },
 ];

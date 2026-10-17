@@ -36,8 +36,9 @@ export function bosDosya() {
     tekerrur: null, // 'yok' | 'birinci' | 'ikinci'
     esas_ceza: null, // 108/2: tekerrüre esas en ağır önceki ceza
     giris: null, // { tur: 'bugun' } | { tur: 'tarih', tarih }
-    mahsup: null, // { gozalti, tutukluluk } gün
+    mahsup: null, // [{ tur, gun } | { tur, baslangic, bitis }]; [] = yok
     ek: {}, // sonuca göre sorulan ek sorular
+    muddetname: {}, // karşılaştırma için müddetnamedeki tarihler: { acik, cikis, ks, bitis }
     bilinmiyor: [],
   };
 }
@@ -49,11 +50,39 @@ export function dosyaYukle(kayit) {
   for (const k of Object.keys(d)) if (k in kayit && k !== 'surum') d[k] = kayit[k];
   d.ozel = { ...bosDosya().ozel, ...(kayit.ozel || {}) };
   d.ek = { ...(kayit.ek || {}) };
+  d.muddetname = { ...(kayit.muddetname || {}) };
+  d.mahsup = mahsupYukle(kayit.mahsup);
   d.bilinmiyor = Array.isArray(kayit.bilinmiyor) ? [...kayit.bilinmiyor] : [];
   return d;
 }
 
 export const klonla = (d) => structuredClone(d);
+
+// Mahsup ve önceki infaz kayıt türleri (çekirdekteki MAHSUP_TURLERI'nin arayüzde sorulanları).
+export const MAHSUP_TURLERI = [
+  ['gozalti', 'Gözaltı'],
+  ['tutukluluk', 'Tutukluluk'],
+  ['konutu_terk_etmeme', 'Konutu terk etmeme (2 gün = 1 gün)'],
+  ['denetimli_serbestlik', 'Kullanılan denetimli serbestlik'],
+];
+
+// Faz 1 biçimi { gozalti, tutukluluk } kayıt listesine çevrilir.
+export function mahsupYukle(m) {
+  if (m === null || m === undefined) return null;
+  if (Array.isArray(m)) return m.filter((k) => k && MAHSUP_TURLERI.some(([t]) => t === k.tur)).map((k) => ({ ...k }));
+  const liste = [];
+  if (m.gozalti > 0) liste.push({ tur: 'gozalti', gun: m.gozalti });
+  if (m.tutukluluk > 0) liste.push({ tur: 'tutukluluk', gun: m.tutukluluk });
+  return liste;
+}
+
+// Kaydın takvim günü (aralıkta başlangıç ve bitiş dahil) ve cezadan düşülen gün.
+export function mahsupGunu(k) {
+  const takvimGunu = k.gun > 0 ? k.gun : k.baslangic && k.bitis && k.bitis >= k.baslangic ? gunSay(k.baslangic, k.bitis) + 1 : 0;
+  return { takvim: takvimGunu, dusulen: k.tur === 'konutu_terk_etmeme' ? Math.floor(takvimGunu / 2) : takvimGunu };
+}
+const gunSay = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+export const mahsupToplami = (liste) => (mahsupYukle(liste) || []).reduce((t, k) => t + mahsupGunu(k).dusulen, 0);
 
 export const bilinmiyorMu = (d, id) => d.bilinmiyor.includes(id);
 
@@ -96,9 +125,10 @@ export function vakaKur(d, bugun, { dsTalebi = true } = {}) {
   const orgutUyelik = orgutMaddesi ? (d.suc.fikra ? d.suc.fikra !== '1' : true) : false;
   const cevrilmis = d.ceza_turu === 'adli_paradan_cevrilen_hapis';
   const ek = d.ek;
-  const mahsup = [];
-  if (d.mahsup?.gozalti > 0) mahsup.push({ tur: 'gozalti', gun: d.mahsup.gozalti });
-  if (d.mahsup?.tutukluluk > 0) mahsup.push({ tur: 'tutukluluk', gun: d.mahsup.tutukluluk });
+  // Çekirdek aralıkları kendisi sayar, çakışmayı denetler ve konutu terk etmemede 2:1 uygular.
+  const mahsup = (mahsupYukle(d.mahsup) || [])
+    .filter((k) => mahsupGunu(k).takvim > 0)
+    .map((k, i) => (k.gun > 0 ? { kayit_id: `M${i + 1}`, tur: k.tur, gun: k.gun } : { kayit_id: `M${i + 1}`, tur: k.tur, baslangic: k.baslangic, bitis: k.bitis }));
   const kadinCocuk = ek.kadin_cocuk === true ? true : ek.kadin_cocuk === false ? false : null;
 
   return {
