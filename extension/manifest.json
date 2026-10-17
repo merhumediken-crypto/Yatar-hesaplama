@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "İnfaz & Tekerrür Hesabı",
   "short_name": "Yatar Hesabı",
-  "version": "0.1.0",
-  "description": "Suç tarihi ve cezadan tekerrürsüz, 1. ve 2. tekerrür için gerekçeli, kural tabanlı infaz (yatar) ön değerlendirmesi.",
+  "version": "0.2.0",
+  "description": "Suç tarihi ve cezadan tekerrürsüz, 1. ve 2. tekerrür için gerekçeli, kaynaklı ve kanıtlı infaz (yatar) ön değerlendirmesi.",
   "action": {
     "default_title": "İnfaz & Tekerrür Hesabı",
     "default_popup": "popup.html",

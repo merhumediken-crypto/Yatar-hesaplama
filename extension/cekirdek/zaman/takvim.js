@@ -48,7 +48,31 @@ export function karsilastir(a, b) {
 export const once = (a, b) => karsilastir(a, b) < 0;
 export const sonra = (a, b) => karsilastir(a, b) > 0;
 export const ayniGun = (a, b) => karsilastir(a, b) === 0;
-export const enGec = (...xs) => xs.reduce((a, b) => (karsilastir(a, b) >= 0 ? a : b));
+export const enGec = (...xs) => xs.filter(Boolean).reduce((a, b) => (karsilastir(a, b) >= 0 ? a : b));
+export const enErken = (...xs) => xs.filter(Boolean).reduce((a, b) => (karsilastir(a, b) <= 0 ? a : b));
+
+// 0 = Pazar … 6 = Cumartesi
+export function haftaGunu(s) {
+  return new Date(gunNo(s) * GUN_MS).getUTCDay();
+}
+
+// Hafta sonuna denk gelen son günü izleyen pazartesiye taşır. Resmî tatiller
+// bu pakette bulunmadığından ayrıca kontrol edilmelidir.
+export function haftaSonuSonrasi(s) {
+  const g = haftaGunu(s);
+  return g === 6 ? gunEkle(s, 2) : g === 0 ? gunEkle(s, 1) : s;
+}
+
+// Takvim ayı ekleme (ay sonu kırpılır). TCK 61/6 "ay otuz gün" kuralından ayrı
+// bir yöntemdir; hesap profili hangisinin kullanılacağını belirler.
+export function takvimAyiEkle(s, n) {
+  const [y, a, g] = parcala(s);
+  const toplam = y * 12 + (a - 1) + n;
+  const hy = Math.floor(toplam / 12);
+  const ha = (toplam % 12) + 1;
+  const hg = Math.min(g, ayinGunSayisi(hy, ha));
+  return `${hy}-${String(ha).padStart(2, '0')}-${String(hg).padStart(2, '0')}`;
+}
 
 function ayinGunSayisi(y, a) {
   return new Date(Date.UTC(y, a, 0)).getUTCDate();
