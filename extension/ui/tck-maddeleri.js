@@ -1,6 +1,6 @@
-// Formda madde seçimini kolaylaştırmak için sık karşılaşılan TCK madde başlıkları.
+// Suç seçimini kolaylaştırmak için sık karşılaşılan madde başlıkları ve arama.
 // Yalnız gösterim amaçlıdır; özel oran ve istisna kapsamı kural tabanındaki
-// seçicilerle (madde/fıkra/bent tam eşleşmesi) belirlenir.
+// seçicilerle (kanun/madde/fıkra/bent tam eşleşmesi) belirlenir.
 export const TCK_MADDELERI = [
   ['81', 'Kasten öldürme'],
   ['82', 'Kasten öldürmenin nitelikli halleri'],
@@ -56,3 +56,59 @@ export const TCK_MADDELERI = [
   ['314', 'Silahlı örgüt'],
   ['328', 'Siyasal veya askerî casusluk'],
 ];
+
+// TCK dışındaki sık suçlar: [kanun, madde, ad].
+export const DIGER_SUCLAR = [
+  [6136, '13', 'Ruhsatsız silah taşıma veya bulundurma (6136)'],
+  [5607, '3', 'Kaçakçılık (5607)'],
+  [5941, '7', 'Çek Kanunu hapis gerektiren suçlar (5941)'],
+  [2863, '74', 'Kültür varlıkları kaçakçılığı (2863)'],
+  [4733, '8', 'Tütün ve alkol kaçakçılığı (4733)'],
+];
+
+const sade = (s) =>
+  String(s ?? '')
+    .toLocaleLowerCase('tr')
+    .replace(/[çğıöşü]/g, (c) => ({ ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' })[c])
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const KATALOG = [
+  ...TCK_MADDELERI.map(([madde, ad]) => ({ kanun: 5237, madde, ad, etiket: `TCK ${madde}` })),
+  ...DIGER_SUCLAR.map(([kanun, madde, ad]) => ({ kanun, madde, ad, etiket: `${kanun} s.K. m.${madde}` })),
+].map((s) => ({ ...s, anahtar: sade(`${s.ad} ${s.madde} ${s.etiket}`) }));
+
+// "142", "142/1-b", "hırsız", "nitelikli hirsizlik" gibi sorgulara uyan kayıtlar.
+export function sucAra(sorgu, sinir = 8) {
+  const q = sade(sorgu);
+  if (!q) return KATALOG.filter((s) => ['141', '142', '157', '158', '188', '86', '81', '102', '148', '106'].includes(s.madde) && s.kanun === 5237).slice(0, sinir);
+  const no = /^(\d+(?:\/[a-z])?)/.exec(q)?.[1];
+  const kelimeler = q.split(' ');
+  const puanli = KATALOG.map((s) => {
+    let p = 0;
+    if (no && s.madde.toLowerCase() === no) p += 10;
+    if (kelimeler.every((k) => s.anahtar.includes(k))) p += 5;
+    if (sade(s.ad).startsWith(q)) p += 2;
+    return { s, p };
+  }).filter((x) => x.p > 0);
+  return puanli.sort((a, b) => b.p - a.p).slice(0, sinir).map((x) => x.s);
+}
+
+// Serbest yazılan "142/1-b" → { madde, fikra, bent }.
+export function maddeCoz(metin) {
+  const m = /^\s*(\d+(?:\/[a-zA-Z])?)\s*(?:\/\s*(\d+))?\s*(?:[-.]?\s*([a-zçğıöşü]))?\s*$/i.exec(String(metin ?? ''));
+  if (!m) return null;
+  return { madde: m[1].toUpperCase(), fikra: m[2] || null, bent: m[3] ? m[3].toLowerCase() : null };
+}
+
+export function sucAdi(suc) {
+  if (!suc) return null;
+  const k = KATALOG.find((s) => s.kanun === suc.kanun && s.madde === suc.madde);
+  return k ? k.ad : null;
+}
+
+export function maddeEtiketi(suc) {
+  if (!suc) return '';
+  const alt = `${suc.fikra ? '/' + suc.fikra : ''}${suc.bent ? '-' + suc.bent : ''}`;
+  return suc.kanun === 5237 ? `TCK ${suc.madde}${alt}` : `${suc.kanun ?? '?'} s.K. m.${suc.madde}${alt}`;
+}

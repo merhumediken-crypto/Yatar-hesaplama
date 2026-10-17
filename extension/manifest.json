@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "İnfaz & Tekerrür Hesabı",
+  "name": "Yatar Hesabı · İnfaz ve Tekerrür",
   "short_name": "Yatar Hesabı",
-  "version": "0.2.0",
-  "description": "Suç tarihi ve cezadan tekerrürsüz, 1. ve 2. tekerrür için gerekçeli, kaynaklı ve kanıtlı infaz (yatar) ön değerlendirmesi.",
+  "version": "0.3.0",
+  "description": "Suç tarihi ve cezadan kapalı, açık ve denetimli serbestlik sürelerini ve tahliye takvimini adım adım hesaplar.",
   "action": {
-    "default_title": "İnfaz & Tekerrür Hesabı",
+    "default_title": "Yatar Hesabı",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",

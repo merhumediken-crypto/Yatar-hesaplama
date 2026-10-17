@@ -1,19 +1,34 @@
-// Arayüz bileşim kökü: çalışma paketini yükler, çekirdeği ve görünümleri bağlar,
-// olayları dağıtır. Hukuki mantık içermez; tamamı extension/cekirdek'tedir.
+// Arayüz bileşim kökü: çalışma paketini yükler, dosyayı (cevapları) tutar, sıradaki
+// soruyu ve sonucu çizer, olayları dağıtır. Hukuki mantık çekirdekte; soru sırası
+// sorular.js'de, sonuç özeti ozet.js'dedir.
 
-import { hesapla, ozetMetni, KuralTabani, MevzuatDeposu, takvim as T } from '../cekirdek/index.js';
-import { TCK_MADDELERI } from './tck-maddeleri.js';
-import { $, esc, depo, sayfaAc, bildir, dosyaIndir } from './yardimci.js';
-import { vakaOku, vakadanForm, formDurumu, formuDoldur, formuSifirla, maddeAyristir } from './form.js';
-import { gorunumKur, hesapCiz, gerekceCiz } from './gorunum.js';
+import { hesapla, KuralTabani, MevzuatDeposu, takvim as T } from '../cekirdek/index.js';
+import { $, depo, sayfaAc, bildir } from './yardimci.js';
+import { bosDosya, dosyaYukle, hesaplanabilir, kapsamDisi, ozelDurum, vakaKur, SURELI_TURLER } from './dosya.js';
+import { TEMEL_SORULAR, TUM_SORULAR, soru, sonrakiSoru, cevaplar, cevapla, bilinmiyorCevabi, gosterilenSenaryo } from './sorular.js';
+import { sonucOzeti, paylasimMetni } from './ozet.js';
+import { maddeCoz } from './tck-maddeleri.js';
+import { cevaplarCiz, soruCiz, soruDegeri, sonucCiz } from './ekran.js';
 import { mevzuatKur, aramaYap, maddeGoster, kuralGoster, dayanaklarCiz } from './mevzuat-gorunumu.js';
 import { surelerCiz } from './sureler.js';
 
-const FORM_ANAHTARI = 'infaz-form-v2';
-const MADDE_ADLARI = new Map(TCK_MADDELERI);
-const tamEkran = new URLSearchParams(location.search).has('tam');
+const DOSYA_ANAHTARI = 'infaz-dosya-v3';
+const tamSayfa = new URLSearchParams(location.search).has('tam');
+const paylasVar = typeof navigator.share === 'function';
 
-const durum = { kt: null, mevzuat: null, cikti: null, vaka: null, gerekceSenaryo: 'yok', zamanlayici: null };
+const durum = {
+  kt: null,
+  dosya: bosDosya(),
+  cikti: null,
+  ozet: null,
+  aktif: null, // ekrandaki soru
+  duzenlenen: null, // avukatın değiştirmek için seçtiği soru
+  gorunen: null, // karşılaştırmada seçilen senaryo
+  acikNeden: null,
+  sorgu: '',
+  girisTarihli: false,
+  uyari: null,
+};
 
 const veriYukle = async (dosya) => {
   const yanit = await fetch(`veri/${dosya}`);
@@ -22,106 +37,218 @@ const veriYukle = async (dosya) => {
 };
 
 // ---------------------------------------------------------------------------
-// Sekmeler
+// Hesap ve çizim
 // ---------------------------------------------------------------------------
 
-function sekmeAc(ad) {
-  for (const s of document.querySelectorAll('.sekmeler [role="tab"]')) {
-    const aktif = s.id === `sekme-${ad}`;
-    s.setAttribute('aria-selected', String(aktif));
-    $(s.getAttribute('aria-controls')).classList.toggle('gizli', !aktif);
+function hesapYap() {
+  const d = durum.dosya;
+  durum.cikti = null;
+  if (hesaplanabilir(d)) {
+    try {
+      durum.cikti = hesapla(durum.kt, vakaKur(d, T.bugunIstanbul()));
+    } catch (hata) {
+      console.error(hata);
+      bildir(`Hesap hatası: ${hata.message}`);
+    }
   }
-  if (ad === 'gerekce' && durum.cikti) gerekceCiz(durum.cikti, durum.gerekceSenaryo);
-  if (ad === 'mevzuat') {
-    dayanaklarCiz(durum.cikti);
-    if (!$('mevzuatSonuc').children.length) aramaYap();
-  }
-  if (ad === 'sureler') surelerCiz(durum.kt);
 }
 
-// ---------------------------------------------------------------------------
-// Form yardımcıları
-// ---------------------------------------------------------------------------
+function sonucuCiz() {
+  durum.ozet = sonucOzeti(durum.kt, durum.dosya, durum.cikti, durum.gorunen);
+  const onSonuc = !!durum.aktif && TEMEL_SORULAR.includes(durum.aktif) && !durum.aktif.cevaplandi(durum.dosya);
+  sonucCiz(durum.ozet, { gorunen: durum.gorunen, acikNeden: durum.acikNeden, paylasVar, onSonuc });
+}
 
-function kosulluAlanlar() {
-  const kanun = $('kanun').value;
-  $('kanun_no').classList.toggle('gizli', kanun !== 'diger');
-  const { madde, fikra, bent } = maddeAyristir();
-  let metin = '';
-  if (kanun === '5237' && madde) {
-    const ad = MADDE_ADLARI.get(madde);
-    const konum = durum.kt?.tckKonumu(madde);
-    metin = `TCK m.${madde}${fikra ? '/' + fikra : ''}${bent ? '-' + bent : ''}${ad ? ' · ' + ad : ''}${konum ? ` · ${konum[0]}. Kitap ${konum[1]}. Kısım ${konum[2]}. Bölüm` : ''}`;
-  } else if (kanun === '5941') {
-    metin = 'Çek Kanunu: m.5 (karşılıksız çek adli parası) veya m.7 (hapis gerektiren suçlar).';
-  } else if (kanun === '2937') {
-    metin = '2937 ceza hükümleri: kapsam hükümden doğrulanmalı (Dosya ayrıntıları).';
-  }
-  $('maddeAdi').textContent = metin;
-  const tur = $('ceza_turu').value;
-  document.querySelectorAll('.kosullu').forEach((el) => {
-    let goster = false;
-    if (el.dataset.madde) goster = kanun === '5237' && !!madde && el.dataset.madde.split(',').includes(madde);
-    if (el.dataset.tur) goster = el.dataset.tur.split(',').includes(tur);
-    if (el.dataset.kanun) goster = el.dataset.kanun === kanun;
-    el.classList.toggle('goster', goster);
+function siradakiSorular(d) {
+  return TUM_SORULAR.filter((s) => s.gorunur(d) && (TEMEL_SORULAR.includes(s) || s.cevaplandi(d)));
+}
+
+function soruyuCiz() {
+  const d = durum.dosya;
+  const s = durum.aktif;
+  const temel = TEMEL_SORULAR.filter((x) => x.gorunur(d));
+  const sira = siradakiSorular(d);
+  cevaplarCiz(cevaplar(d), s?.id);
+  soruCiz(s, d, {
+    sira: s ? temel.indexOf(s) + 1 : 0,
+    toplam: temel.length,
+    ilerleme: s && temel.includes(s) ? temel.filter((x) => x.cevaplandi(d)).length / temel.length : null,
+    geriVar: !!s && sira.indexOf(s) > 0,
+    hesaplanabilir: hesaplanabilir(d) && !kapsamDisi(d),
+    sorgu: durum.sorgu,
+    girisTarihli: durum.girisTarihli,
+    uyari: durum.uyari,
   });
-  const dolu = [...document.querySelectorAll('#ayrintiBolumu input, #ayrintiBolumu select')].filter((el) =>
-    el.type === 'checkbox' ? el.checked : !['profil_kusurat', 'profil_ay'].includes(el.id) && el.value !== '',
-  ).length;
-  $('ayrintiSayac').textContent = dolu ? `(${dolu} alan dolu)` : '';
 }
 
-function oncekiKartEkle(deger = null) {
-  const parca = $('oncekiSablon').content.cloneNode(true);
-  const kart = parca.querySelector('.onceki');
-  if (deger) {
-    kart.querySelectorAll('[data-a]').forEach((el) => {
-      if (el.dataset.a in deger && deger[el.dataset.a] !== null && deger[el.dataset.a] !== undefined) el.value = deger[el.dataset.a];
-    });
-  }
-  kart.querySelector('.sil').addEventListener('click', () => {
-    kart.remove();
-    planla();
-  });
-  $('oncekiListe').appendChild(parca);
+function yenile({ kaydet = true } = {}) {
+  hesapYap();
+  durum.aktif = durum.duzenlenen ? soru(durum.duzenlenen) : sonrakiSoru(durum.kt, durum.dosya, T.bugunIstanbul(), durum.cikti);
+  soruyuCiz();
+  sonucuCiz();
+  if (kaydet) depo.yaz(DOSYA_ANAHTARI, durum.dosya);
+  if (!$('ekran-mevzuat').classList.contains('gizli')) dayanaklarCiz(durum.cikti);
+}
+
+// Bir cevap verildi: düzenleme biter, sıradaki soruya geçilir.
+function ilerle() {
+  durum.duzenlenen = null;
+  durum.sorgu = '';
+  durum.girisTarihli = false;
+  durum.uyari = null;
+  durum.gorunen = null;
+  yenile();
+  odakla();
+}
+
+function odakla() {
+  const girdi = $('soruKarti').querySelector('input:not(.gizli)');
+  // Telefonda klavyenin kendiliğinden açılması rahatsız eder; yalnız geniş ekranda.
+  if (girdi && matchMedia('(min-width: 720px)').matches) girdi.focus({ preventScroll: true });
+}
+
+function uyar(metin) {
+  durum.uyari = metin;
+  soruyuCiz();
+  const kart = $('soruKarti');
+  kart.classList.remove('salla');
+  void kart.offsetWidth;
+  kart.classList.add('salla');
+  if (!kart.querySelector('.uyari')) bildir(metin);
 }
 
 // ---------------------------------------------------------------------------
-// Hesap döngüsü
+// Soru kartı olayları
 // ---------------------------------------------------------------------------
 
-function hesaplaVeCiz() {
-  kosulluAlanlar();
-  durum.vaka = vakaOku();
-  try {
-    durum.cikti = hesapla(durum.kt, durum.vaka);
-  } catch (hata) {
-    console.error(hata);
-    $('durumBandi').className = 'durum-bandi var hukuki_inceleme_gerekli';
-    $('durumBandi').textContent = `Hesap hatası: ${hata.message}`;
+function cezaGirdileriniSakla() {
+  const s = durum.aktif;
+  if (s?.tur !== 'ceza' || s.id !== 'ceza') return;
+  const v = soruDegeri({ ...s, tur: 'ceza' }, { ...durum.dosya, ceza_turu: 'sureli_hapis' });
+  if (v?.ceza) durum.dosya.ceza = v.ceza;
+}
+
+function devam() {
+  const s = durum.aktif;
+  const d = durum.dosya;
+  const deger = soruDegeri(s, d);
+  if (deger === null) {
+    uyar({ tarih: 'Geçerli bir tarih girin.', giris: 'Geçerli bir tarih girin.', ceza: 'Ceza süresini girin (yıl, ay veya gün).', mahsup: 'Gün sayılarını tam sayı olarak girin.', fikra: 'Fıkra veya bent girin ya da "Bilmiyorum" deyin.' }[s.tur]);
     return;
   }
-  hesapCiz(durum.cikti);
-  const acik = document.querySelector('.sekmeler [aria-selected="true"]').id;
-  if (acik === 'sekme-gerekce') gerekceCiz(durum.cikti, durum.gerekceSenaryo);
-  if (acik === 'sekme-mevzuat') dayanaklarCiz(durum.cikti);
+  const bugun = T.bugunIstanbul();
+  if (s.id === 'suc_tarihi' && T.once(bugun, deger)) return uyar('Suç tarihi bugünden sonra olamaz.');
+  if (s.id === 'dogum_tarihi' && d.suc_tarihi && !T.once(deger, d.suc_tarihi)) return uyar('Doğum tarihi suç tarihinden önce olmalı.');
+  if (s.tur === 'giris' && d.suc_tarihi && T.once(deger.tarih, d.suc_tarihi)) return uyar('Giriş tarihi suç tarihinden önce olamaz.');
+  cevapla(d, s, deger);
+  ilerle();
 }
 
-function planla() {
-  clearTimeout(durum.zamanlayici);
-  durum.zamanlayici = setTimeout(() => {
-    hesaplaVeCiz();
-    depo.yaz(FORM_ANAHTARI, formDurumu());
-  }, 80);
+function sucSec(suc) {
+  const s = soru('suc');
+  const yazilan = maddeCoz(durum.sorgu);
+  const ayni = yazilan && suc.kanun === 5237 && yazilan.madde === suc.madde;
+  cevapla(durum.dosya, s, { fikra: ayni ? yazilan.fikra : null, bent: ayni ? yazilan.bent : null, ...suc });
+  ilerle();
+}
+
+function soruKartiTiklama(e) {
+  const s = durum.aktif;
+  if (!s) return;
+  const d = durum.dosya;
+  const hedef = e.target.closest('button');
+  if (!hedef) return;
+  const ds = hedef.dataset;
+  if (ds.secim !== undefined) {
+    cevapla(d, s, s.secenekler(d)[Number(ds.secim)].deger);
+    return ilerle();
+  }
+  if (ds.eylem === 'devam') return devam();
+  if (ds.eylem === 'bilmiyorum') {
+    bilinmiyorCevabi(d, s.id);
+    return ilerle();
+  }
+  if (ds.eylem === 'geri') {
+    const sira = siradakiSorular(d);
+    const onceki = sira[sira.indexOf(s) - 1];
+    if (onceki) {
+      durum.duzenlenen = onceki.id;
+      durum.uyari = null;
+      yenile({ kaydet: false });
+    }
+    return;
+  }
+  if (ds.cezaTuru) {
+    cezaGirdileriniSakla();
+    d.ceza_turu = ds.cezaTuru;
+    if (!SURELI_TURLER.includes(d.ceza_turu)) d.ceza = null;
+    return soruyuCiz();
+  }
+  if (ds.suc) {
+    const [kanun, madde] = ds.suc.split('|');
+    return sucSec({ kanun: Number(kanun), madde });
+  }
+  if (ds.sucSerbest) {
+    const m = maddeCoz(durum.sorgu);
+    if (m) {
+      cevapla(d, soru('suc'), { kanun: 5237, ...m });
+      ilerle();
+    }
+    return;
+  }
+  if (ds.sucKanun) {
+    const kanun = Number($('s_kanun').value);
+    const m = maddeCoz($('s_madde').value);
+    if (!Number.isInteger(kanun) || kanun <= 0 || !m) return uyar('Kanun numarasını ve maddeyi girin.');
+    cevapla(d, soru('suc'), { kanun, ...m });
+    return ilerle();
+  }
+  if (ds.ozel) {
+    d.ozel[ds.ozel] = !ozelDurum(d)[ds.ozel];
+    return yenile();
+  }
+  if (ds.giris === 'bugun') {
+    cevapla(d, s, { tur: 'bugun' });
+    return ilerle();
+  }
+  if (ds.giris === 'tarih') {
+    durum.girisTarihli = true;
+    soruyuCiz();
+    $('s_tarih')?.focus();
+    return;
+  }
+  if (ds.mahsupYok) {
+    cevapla(d, s, { gozalti: 0, tutukluluk: 0 });
+    return ilerle();
+  }
+}
+
+function soruKartiGirdi(e) {
+  if (e.target.id !== 's_ara') return;
+  durum.sorgu = e.target.value;
+  const konum = e.target.selectionStart;
+  soruyuCiz();
+  const ara = $('s_ara');
+  ara.focus();
+  ara.setSelectionRange(konum, konum);
+}
+
+function soruKartiTus(e) {
+  if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+  e.preventDefault();
+  if (e.target.id === 's_ara') {
+    $('soruKarti').querySelector('[data-suc], [data-suc-serbest]')?.click();
+  } else if (e.target.closest('.baska-kanun')) {
+    $('soruKarti').querySelector('[data-suc-kanun]')?.click();
+  } else devam();
 }
 
 // ---------------------------------------------------------------------------
-// Dışa aktarım
+// Sonuç ve genel olaylar
 // ---------------------------------------------------------------------------
 
 async function kopyala() {
-  const metin = ozetMetni(durum.cikti);
+  const metin = paylasimMetni(durum.dosya, durum.ozet);
   try {
     await navigator.clipboard.writeText(metin);
   } catch {
@@ -132,142 +259,131 @@ async function kopyala() {
     document.execCommand('copy');
     ta.remove();
   }
-  bildir('Özet panoya kopyalandı');
+  bildir('Sonuç kopyalandı');
 }
 
-function sonucIndir() {
-  const veri = { olusturma: new Date().toISOString(), kural_tabani: durum.kt.kimlik, vaka: durum.vaka, cikti: durum.cikti };
-  dosyaIndir(`infaz-sonuc-${durum.cikti?.hesap_tarihi || 'hesap'}.json`, JSON.stringify(veri, null, 2));
-}
-
-function vakaKaydet() {
-  const veri = { bicim: 'infaz-vaka', surum: 2, kural_tabani: durum.kt.kimlik.paket_surumu, vaka: vakaOku() };
-  dosyaIndir(`infaz-vaka-${T.bugunIstanbul()}.json`, JSON.stringify(veri, null, 2));
-}
-
-async function vakaYukle(dosya) {
+async function paylas() {
   try {
-    const veri = JSON.parse(await dosya.text());
-    const vaka = veri.vaka || veri;
-    if (!vaka.suclar_ve_ilamlar && !vaka.ilam) throw new Error('Vaka dosyası değil.');
-    vakadanForm(vaka, oncekiKartEkle);
-    planla();
-    bildir('Vaka yüklendi');
+    await navigator.share({ title: 'İnfaz hesabı', text: paylasimMetni(durum.dosya, durum.ozet) });
   } catch (h) {
-    bildir(`Vaka yüklenemedi: ${h.message}`);
+    if (h.name !== 'AbortError') kopyala();
   }
 }
 
-function yazdir() {
-  if (tamEkran) {
-    document.body.classList.add('yazdirma');
-    document.querySelectorAll('details.bolum').forEach((d) => (d.open = true));
-    gerekceCiz(durum.cikti, durum.cikti?.secili_senaryo || 'yok');
+function sonucTiklama(e) {
+  const hedef = e.target.closest('button');
+  if (!hedef) return;
+  const ds = hedef.dataset;
+  if (ds.neden) {
+    durum.acikNeden = durum.acikNeden === ds.neden ? null : ds.neden;
+    return sonucuCiz();
+  }
+  if (ds.senaryo) {
+    const kendi = gosterilenSenaryo(durum.dosya);
+    durum.gorunen = ds.senaryo === kendi || ds.senaryo === durum.gorunen ? null : ds.senaryo;
+    durum.acikNeden = null;
+    return sonucuCiz();
+  }
+  if (ds.eylem === 'kopyala') return kopyala();
+  if (ds.eylem === 'paylas') return paylas();
+}
+
+function sekmeAc(ad) {
+  for (const s of document.querySelectorAll('.sekmeler [role="tab"]')) {
+    const aktif = s.id === `sekme-${ad}`;
+    s.setAttribute('aria-selected', String(aktif));
+    $(s.getAttribute('aria-controls')).classList.toggle('gizli', !aktif);
+  }
+  if (ad === 'mevzuat') {
     dayanaklarCiz(durum.cikti);
-    setTimeout(() => {
-      window.print();
-      document.body.classList.remove('yazdirma');
-    }, 50);
-  } else {
-    depo.yaz(FORM_ANAHTARI, formDurumu()).then(() => sayfaAc('tam=1&yazdir=1'));
+    if (!$('mevzuatSonuc').children.length) aramaYap();
   }
+  if (ad === 'sureler') surelerCiz(durum.kt);
+  window.scrollTo({ top: 0 });
 }
 
-// ---------------------------------------------------------------------------
-// Başlatma
-// ---------------------------------------------------------------------------
+let yeniOnayZamanlayici = null;
+function yeniHesap() {
+  const dugme = $('yeniHesap');
+  if (!dugme.classList.contains('onay')) {
+    dugme.classList.add('onay');
+    dugme.querySelector('span').textContent = 'Emin misiniz?';
+    yeniOnayZamanlayici = setTimeout(() => {
+      dugme.classList.remove('onay');
+      dugme.querySelector('span').textContent = 'Yeni';
+    }, 3000);
+    return;
+  }
+  clearTimeout(yeniOnayZamanlayici);
+  dugme.classList.remove('onay');
+  dugme.querySelector('span').textContent = 'Yeni';
+  Object.assign(durum, { dosya: bosDosya(), duzenlenen: null, gorunen: null, acikNeden: null, sorgu: '', girisTarihli: false, uyari: null });
+  sekmeAc('hesap');
+  yenile();
+}
 
 function olaylariBagla() {
-  const hesapPaneli = $('panel-hesap');
-  hesapPaneli.addEventListener('input', planla);
-  hesapPaneli.addEventListener('change', planla);
+  $('soruKarti').addEventListener('click', soruKartiTiklama);
+  $('soruKarti').addEventListener('input', soruKartiGirdi);
+  $('soruKarti').addEventListener('keydown', soruKartiTus);
+  $('sonuc').addEventListener('click', sonucTiklama);
+  $('cevaplar').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-duzenle]');
+    if (!c) return;
+    durum.duzenlenen = c.dataset.duzenle;
+    durum.sorgu = '';
+    durum.uyari = null;
+    yenile({ kaydet: false });
+    $('soruKarti').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    odakla();
+  });
   document.querySelector('.sekmeler').addEventListener('click', (e) => {
     const s = e.target.closest('[role="tab"]');
     if (s) sekmeAc(s.id.replace('sekme-', ''));
   });
-  // Kural çipleri, madde bağlantıları, gerekçe ve eksik alan kısayolları
+  // Madde ve kural bağlantıları (sonuç, mevzuat ve süreler ekranlarında)
   document.addEventListener('click', (e) => {
-    const kural = e.target.closest('[data-kural]');
-    if (kural) {
-      sekmeAc('mevzuat');
-      kuralGoster(kural.dataset.kural);
-      return;
-    }
-    const madde = e.target.closest('[data-madde]');
-    if (madde && madde.tagName === 'BUTTON') {
+    const madde = e.target.closest('button[data-madde]');
+    if (madde) {
       sekmeAc('mevzuat');
       maddeGoster(madde.dataset.madde);
       return;
     }
-    const gerekce = e.target.closest('[data-gerekce]');
-    if (gerekce) {
-      durum.gerekceSenaryo = gerekce.dataset.gerekce;
-      sekmeAc('gerekce');
-      return;
-    }
-    const sekme = e.target.closest('[data-gerekce-sekme]');
-    if (sekme) {
-      durum.gerekceSenaryo = sekme.dataset.gerekceSekme;
-      gerekceCiz(durum.cikti, durum.gerekceSenaryo);
-      return;
-    }
-    const odak = e.target.closest('[data-odak]');
-    if (odak) {
-      const hedef = $(odak.dataset.odak);
-      const bolum = hedef?.closest('details');
-      if (bolum) bolum.open = true;
-      hedef?.closest('.kosullu')?.classList.add('goster');
-      hedef?.focus();
+    const kural = e.target.closest('[data-kural]');
+    if (kural) {
+      sekmeAc('mevzuat');
+      kuralGoster(kural.dataset.kural);
     }
   });
-  $('oncekiEkle').addEventListener('click', () => {
-    oncekiKartEkle();
-    planla();
-  });
-  $('sifirla').addEventListener('click', () => {
-    formuSifirla();
-    planla();
-  });
-  $('tamEkran').addEventListener('click', () => depo.yaz(FORM_ANAHTARI, formDurumu()).then(() => sayfaAc('tam=1')));
-  $('kopyala').addEventListener('click', kopyala);
-  $('jsonIndir').addEventListener('click', sonucIndir);
-  $('yazdir').addEventListener('click', yazdir);
-  $('vakaKaydet').addEventListener('click', vakaKaydet);
-  $('vakaYukle').addEventListener('change', (e) => e.target.files[0] && vakaYukle(e.target.files[0]));
+  $('yeniHesap').addEventListener('click', yeniHesap);
+  $('tamEkran').addEventListener('click', () => sayfaAc('tam=1'));
   $('mevzuatSec').addEventListener('change', aramaYap);
   let aramaZamanlayici;
   $('mevzuatAra').addEventListener('input', () => {
     clearTimeout(aramaZamanlayici);
     aramaZamanlayici = setTimeout(aramaYap, 200);
   });
-  $('panel-sureler').addEventListener('input', () => surelerCiz(durum.kt));
+  $('ekran-sureler').addEventListener('input', () => surelerCiz(durum.kt));
 }
 
 async function baslat() {
-  if (tamEkran) {
-    document.body.classList.add('tam');
-    $('tamEkran').classList.add('gizli');
-  }
-  $('maddeListesi').innerHTML = TCK_MADDELERI.map(([m, ad]) => `<option value="${esc(m)}">${esc(ad)}</option>`).join('');
+  // Açılır pencerede değil de sekmede/telefonda açıldıysa "Tam sayfa" gereksizdir.
+  if (tamSayfa || innerWidth > 560) $('tamEkran').classList.add('gizli');
+  document.body.classList.toggle('tam', tamSayfa || innerWidth > 560);
   try {
     durum.kt = new KuralTabani(await veriYukle('paket.json'));
   } catch (hata) {
-    $('paketBilgi').textContent = 'Kural tabanı yüklenemedi.';
-    $('durumBandi').className = 'durum-bandi var hukuki_inceleme_gerekli';
-    $('durumBandi').textContent = `Çalışma paketi okunamadı (${hata.message}). npm run veri ile yeniden derleyin.`;
+    $('paketBilgi').textContent = `Kural tabanı yüklenemedi (${hata.message}). npm run veri ile yeniden derleyin.`;
     return;
   }
-  durum.mevzuat = new MevzuatDeposu(durum.kt, veriYukle);
   const k = durum.kt;
-  $('paketBilgi').textContent = `Kural tabanı ${k.surum} · ${k.kurallar.size} kural · ${k.dugumler.size} düğüm · ${k.mevzuatListesi.length} tam metin`;
+  $('paketBilgi').textContent = `Kural tabanı ${k.surum} · ${k.mevzuatListesi.length} tam metin · hesap cihazda yapılır`;
   $('paketBilgi').title = `Kaynak SHA-256: ${k.sha256}`;
-  gorunumKur(k);
-  mevzuatKur(k, durum.mevzuat);
-  formuDoldur(await depo.oku(FORM_ANAHTARI), oncekiKartEkle);
+  mevzuatKur(k, new MevzuatDeposu(k, veriYukle));
+  durum.dosya = dosyaYukle(await depo.oku(DOSYA_ANAHTARI));
   olaylariBagla();
-  hesaplaVeCiz();
-  if (!$('suc_tarihi').value) $('suc_tarihi').focus();
-  if (new URLSearchParams(location.search).has('yazdir')) setTimeout(yazdir, 300);
+  yenile({ kaydet: false });
+  document.body.classList.add('hazir');
 }
 
 baslat();

@@ -39,12 +39,26 @@ genişletme yollarını anlatır. Hedef: hukuki mantığın **veride**, hesap ma
    cikti/     çıktı modeli, durum makinesi, notlar, düz metin özet
         │  index.js (tek genel API)
         ▼
- extension/ui/         ince arayüz: form ↔ vaka, görünümler, mevzuat görüntüleyici, süreler
- extension/popup.html  sekmeler: Hesap · Gerekçe · Mevzuat · Süreler
+ extension/ui/         ince arayüz (bkz. §2.1)
+ extension/popup.html  bölümler: Hesap · Mevzuat · Süreler (telefonda alt menü)
 ```
 
 Bağımlılık yönü tek yönlüdür: `ui → cekirdek/index.js → alt modüller → zaman/dil`.
 Çekirdek arayüzü bilmez; arayüz hukuki karar vermez.
+
+### 2.1 Arayüz katmanı
+
+| Modül | Görev | DOM |
+|---|---|---|
+| `ui/dosya.js` | Avukatın cevapları ("dosya") → kanonik vaka. İyi hâl ve DS talebi açıkça var; kast, terör (3713 m.3) ve örgüt kurma/üyelik (220, 314) maddeden türetilir, avukatın seçimi önce gelir. 01/06/2005 öncesi kapsam dışı. | yok |
+| `ui/sorular.js` | Temel sorular sırayla; ek sorular yalnız sonucu değiştirdiğinde. Ek soru için çekirdeğin belgeli bağlamda belirsiz dediği alanlara bakılır, her cevap seçeneği ayrı hesaplanır, kapalı/açık/çıkış/KS imzası değişiyorsa soru sorulur. "Bilmiyorum" alanı boş bırakır; çekirdek olağan varsayımı veya ihtiyat çözümünü uygular. | yok |
+| `ui/ozet.js` | Seçili senaryonun takviminden kapalı / açık / DS günleri, zaman çizelgesi, nedenler (kural → madde bağlantısı), karşılaştırma ve paylaşım metni. | yok |
+| `ui/ekran.js` | Cevap kutucukları, soru kartı ve sonuç çizimi. | var |
+| `ui/uygulama.js` | Durum, olaylar, kalıcı kayıt (`chrome.storage` yoksa `localStorage`). | var |
+
+Kapalı gün = giriş → açığa geçiş, açık gün = açığa geçiş → kurumdan çıkış; ikisinin
+toplamı çekirdeğin `kurumda_kalis_gun` değerine eşittir. Açığa geçiş çıkıştan sonraysa
+(ör. geçici 6/1 ile kapalıdan DS) bütün süre kapalıda sayılır.
 
 ## 3. Veri derleme hattı (`npm run veri`)
 
@@ -85,16 +99,16 @@ hükümdeki tekerrürden, yoksa belgelerden belirlenen adaydan seçilir.
 * **İhtiyat yönü** (`karar/motor.js → IHTIYAT_YONU`): olağan varsayımlardan sonra hâlâ
   belirsiz kalan düğüm, grubuna göre hükümlü aleyhine çözülür (ör. fıkrası bilinmeyen
   TCK 102'de 3/4 oranı; belirsiz DS yolu uygulanmaz). Sonuç "en çok" olarak işaretlenir.
-* **Belirsiz koşullar**: belgeli bağlamda sonucu belirsiz bırakan alanlar "Sonucu
-  kesinleştirmek için" listesinde gösterilir ve forma kısayol verir.
+* **Belirsiz koşullar**: belgeli bağlamda sonucu belirsiz bırakan alanlar arayüzde
+  sırayla sorulan ek soruların adayıdır; yalnız sonucu değiştirenler sorulur (§2.1).
 
 ## 6. Hesap profili (A01)
 
 Kesirli gün yönü ve yönetmelikteki "ay" yöntemi kural tabanında kabul testine bırakılmıştır.
-Bu seçimler `zaman/profil.js` içinde adlandırılmış bir profilde toplanır, formdan
-değiştirilebilir ve her çıktıda `hesap_profili_id` olarak saklanır.
+Bu seçimler `zaman/profil.js` içinde adlandırılmış bir profilde toplanır ve her çıktıda
+`hesap_profili_id` olarak saklanır. Arayüz varsayılan profili kullanır.
 
-## 7. Test stratejisi (`npm test`, 224 test)
+## 7. Test stratejisi (`npm test`, 237 test)
 
 | Katman | Dosya | Kapsam |
 |---|---|---|
@@ -102,7 +116,8 @@ değiştirilebilir ve her çıktıda `hesap_profili_id` olarak saklanır.
 | Veri | `tests/veri.test.js` | Kaynak doğrulaması, paket güncelliği, SHA-256, TCK yapısı, madde çözümleme |
 | Kabul | `tests/kabul.test.js` | 57 kabul senaryosu (K01-K57) |
 | Hesap | `tests/hesap.test.js` | Sayısal sonuçlar, dallar, profil, belirlenimcilik, politika ızgarası (672 vaka) |
-| Uçtan uca | `scripts/e2e.mjs` | Gerçek Chromium'da eklenti: hesap, gerekçe, kanıt doğrulama, arama, süreler |
+| Arayüz | `tests/arayuz.test.js` | Dosya → vaka, soru sırası, sonucu değiştiren soru seçimi, sonuç özeti, paylaşım metni |
+| Uçtan uca | `scripts/e2e.mjs` | Gerçek Chromium'da telefon (390×844), açılır pencere (400px) ve masaüstü: adım adım soru akışı, sonuç, neden ve madde, kanıt doğrulama, süreler, kayıt, karanlık tema |
 
 ## 8. Kural tabanını güncelleme
 

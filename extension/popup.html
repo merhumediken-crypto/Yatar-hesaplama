@@ -2,296 +2,100 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>İnfaz &amp; Tekerrür Hesabı</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1218" media="(prefers-color-scheme: dark)">
+  <title>Yatar Hesabı</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header class="ust">
     <div class="marka">
-      <img src="icons/icon32.png" width="24" height="24" alt="">
-      <div>
-        <h1>İnfaz &amp; Tekerrür Hesabı</h1>
-        <p class="alt" id="paketBilgi">Kural tabanı yükleniyor…</p>
-      </div>
+      <img src="icons/icon48.png" width="28" height="28" alt="">
+      <span>Yatar Hesabı</span>
     </div>
     <div class="ust-dugmeler">
-      <button type="button" class="dugme hafif kucuk" id="tamEkran" title="Tam sayfada aç">Tam ekran</button>
-      <button type="button" class="dugme hafif kucuk" id="vakaKaydet" title="Vakayı JSON dosyası olarak kaydet">Kaydet</button>
-      <label class="dugme hafif kucuk" title="Kayıtlı vaka dosyasını yükle">Yükle<input type="file" id="vakaYukle" accept="application/json,.json" hidden></label>
-      <button type="button" class="dugme hafif kucuk" id="sifirla" title="Formu temizle">Sıfırla</button>
+      <button type="button" class="ust-dugme" id="yeniHesap" title="Yeni hesap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Yeni</span>
+      </button>
+      <button type="button" class="ust-dugme" id="tamEkran" title="Tam sayfada aç">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg><span>Tam sayfa</span>
+      </button>
     </div>
   </header>
 
   <nav class="sekmeler" role="tablist" aria-label="Bölümler">
-    <button type="button" role="tab" id="sekme-hesap" aria-controls="panel-hesap" aria-selected="true">Hesap</button>
-    <button type="button" role="tab" id="sekme-gerekce" aria-controls="panel-gerekce" aria-selected="false">Gerekçe</button>
-    <button type="button" role="tab" id="sekme-mevzuat" aria-controls="panel-mevzuat" aria-selected="false">Mevzuat</button>
-    <button type="button" role="tab" id="sekme-sureler" aria-controls="panel-sureler" aria-selected="false">Süreler</button>
+    <button type="button" role="tab" id="sekme-hesap" aria-controls="ekran-hesap" aria-selected="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h2M16 11v4"/></svg><span>Hesap</span>
+    </button>
+    <button type="button" role="tab" id="sekme-mevzuat" aria-controls="ekran-mevzuat" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h6"/></svg><span>Mevzuat</span>
+    </button>
+    <button type="button" role="tab" id="sekme-sureler" aria-controls="ekran-sureler" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg><span>Süreler</span>
+    </button>
   </nav>
 
   <main>
-    <!-- ================================================================ HESAP -->
-    <section id="panel-hesap" role="tabpanel" aria-labelledby="sekme-hesap" class="panel" data-form>
-      <div class="kart giris">
-        <div class="satir">
-          <label class="alan"><span>Suç tarihi</span><input type="date" id="suc_tarihi" required></label>
-          <fieldset class="alan ceza">
-            <legend>Hükümdeki sonuç ceza</legend>
-            <div class="ceza-girdi">
-              <label><input type="number" id="ceza_yil" min="0" step="1" inputmode="numeric" placeholder="0" aria-label="Yıl"><span>yıl</span></label>
-              <label><input type="number" id="ceza_ay" min="0" step="1" inputmode="numeric" placeholder="0" aria-label="Ay"><span>ay</span></label>
-              <label><input type="number" id="ceza_gun" min="0" step="1" inputmode="numeric" placeholder="0" aria-label="Gün"><span>gün</span></label>
-            </div>
-          </fieldset>
-          <label class="alan"><span>Hükümdeki tekerrür</span>
-            <select id="hukumdeki_tekerrur">
-              <option value="">Bilinmiyor</option>
-              <option value="yok">Yok</option>
-              <option value="birinci">Birinci tekerrür</option>
-              <option value="ikinci">İkinci tekerrür</option>
-              <option value="58_9_ozel_tehlikelilik">TCK 58/9 özel tehlikelilik</option>
-            </select>
-          </label>
-        </div>
-        <div class="satir ikinci-satir">
-          <div class="alan madde">
-            <span>Suç maddesi</span>
-            <div class="madde-girdi">
-              <select id="kanun" aria-label="Kanun">
-                <option value="5237">TCK</option>
-                <option value="5941">5941 Çek</option>
-                <option value="2937">2937 MİT</option>
-                <option value="diger">Diğer</option>
-              </select>
-              <input type="number" id="kanun_no" class="gizli" placeholder="Kanun no" aria-label="Kanun numarası">
-              <input type="text" id="madde" list="maddeListesi" placeholder="m. (ör. 141, 87/2-d)" aria-label="Madde" autocomplete="off">
-              <input type="text" id="fikra" placeholder="fıkra" aria-label="Fıkra">
-              <input type="text" id="bent" placeholder="bent" aria-label="Bent">
-            </div>
-            <small id="maddeAdi" class="ipucu"></small>
-            <datalist id="maddeListesi"></datalist>
-          </div>
-          <label class="alan"><span>Ceza türü</span>
-            <select id="ceza_turu">
-              <option value="sureli_hapis">Süreli hapis</option>
-              <option value="adli_paradan_cevrilen_hapis">Adli paradan çevrilen hapis</option>
-              <option value="muebbet">Müebbet hapis</option>
-              <option value="agirlastirilmis_muebbet">Ağırlaştırılmış müebbet</option>
-              <option value="adli_para">Adli para cezası</option>
-              <option value="tazyik">Tazyik hapsi</option>
-              <option value="disiplin_hapsi">Disiplin hapsi</option>
-              <option value="zorlama_hapsi">Zorlama hapsi</option>
-            </select>
-          </label>
-          <label class="alan"><span>Kast türü</span>
-            <select id="kast_turu">
-              <option value="">Bilinmiyor</option>
-              <option value="kasit">Kasıt</option>
-              <option value="olasi_kast">Olası kast</option>
-              <option value="taksir">Taksir</option>
-              <option value="bilincli_taksir">Bilinçli taksir</option>
-            </select>
-          </label>
-        </div>
+    <!-- HESAP: cevaplar + sıradaki soru + sonuç -->
+    <section id="ekran-hesap" role="tabpanel" aria-labelledby="sekme-hesap" class="ekran hesap-ekrani">
+      <div class="sutun-soru">
+        <div id="cevaplar" class="cevaplar" aria-label="Verilen cevaplar"></div>
+        <div id="soruKarti" class="soru-karti"></div>
       </div>
-
-      <div id="durumBandi" class="durum-bandi" role="status" aria-live="polite"></div>
-      <section id="senaryolar" class="senaryolar" aria-label="Senaryo karşılaştırması"></section>
-      <div id="eksikBilgi" class="kart eksik-bilgi gizli"></div>
-      <section id="rejim" class="kart rejim" aria-label="Suç tarihine göre uygulanan eşikler"></section>
-
-      <details class="kart bolum" id="ayrintiBolumu">
-        <summary>Dosya ayrıntıları <span class="sayac" id="ayrintiSayac"></span></summary>
-        <h4>İnfaz</h4>
-        <div class="izgara">
-          <label class="alan"><span>Hesap tarihi</span><input type="date" id="hesap_tarihi"></label>
-          <label class="alan"><span>İnfaza başlama tarihi</span><input type="date" id="infaza_baslama_tarihi"></label>
-          <label class="alan"><span>Kesinleşme tarihi</span><input type="date" id="kesinlesme_tarihi"></label>
-          <label class="alan"><span>İyi hâl</span><select id="iyi_hal" class="uc"><option value="">Bilinmiyor (varsayılır)</option><option value="evet">Var</option><option value="hayir">Yok</option></select></label>
-          <label class="alan"><span>DS talebi</span><select id="ds_talebi" class="uc"><option value="">Bilinmiyor (varsayılır)</option><option value="evet">Var</option><option value="hayir">Yok</option></select></label>
-          <label class="onay alan"><input type="checkbox" id="yuksek_guvenlik"> Yüksek güvenlikli kurumda</label>
-        </div>
-        <h4>Mahsup (gün)</h4>
-        <div class="izgara">
-          <label class="alan"><span>Gözaltı</span><input type="number" id="mahsup_gozalti" min="0" step="1" placeholder="0"></label>
-          <label class="alan"><span>Tutukluluk</span><input type="number" id="mahsup_tutukluluk" min="0" step="1" placeholder="0"></label>
-          <label class="alan"><span>Konutu terk etmeme (2 gün = 1)</span><input type="number" id="mahsup_konut" min="0" step="1" placeholder="0"></label>
-          <label class="alan"><span>Diğer kısıtlama</span><input type="number" id="mahsup_diger" min="0" step="1" placeholder="0"></label>
-        </div>
-        <h4>Kişi</h4>
-        <div class="izgara">
-          <label class="alan"><span>Doğum tarihi</span><input type="date" id="dogum_tarihi"></label>
-          <label class="alan"><span>Cinsiyet</span><select id="cinsiyet"><option value="">Belirtilmedi</option><option value="kadin">Kadın</option><option value="erkek">Erkek</option></select></label>
-          <label class="alan"><span>0-6 yaş çocuğu (kadın)</span><select id="kadin_0_6_cocuk" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan"><span>Ağır hasta/engelli/kocama (ATK raporu)</span><select id="rapor_105A_3_b" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-        </div>
-        <h4>Suç niteliği</h4>
-        <div class="izgara">
-          <label class="alan"><span>Terörle Mücadele K. kapsamı</span><select id="teror_kanunu_kapsami" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan"><span>Örgüt faaliyeti çerçevesinde</span><select id="orgut_faaliyeti" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan"><span>Örgüt kurma / yönetme</span><select id="orgut_kurma_yonetme" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan"><span>Örgüt üyeliği</span><select id="orgut_uyelik" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan kosullu" data-madde="82,86,87,96"><span>Mağdurla yakınlık</span><select id="magdur_yakinlik"><option value="">Bilinmiyor</option><option value="diger">Yakın değil</option><option value="es">Eş</option><option value="ustsoy">Üstsoy</option><option value="altsoy">Altsoy</option><option value="kardes">Kardeş</option></select></label>
-          <label class="alan kosullu" data-madde="86,87"><span>Mağdur beden/ruh bakımından savunmasız</span><select id="magdur_savunmasiz" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan kosullu" data-madde="81,82,83,85"><span>Deprem/yapı yıkılması bağlantılı ölüm</span><select id="deprem_yapi_olumu_baglantisi" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan kosullu" data-tur="muebbet,agirlastirilmis_muebbet"><span>Çocuğa karşı suç (108/8)</span><select id="cocuga_karsi_suc" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan kosullu" data-kanun="2937"><span>2937 kapsamı hükümde doğrulandı</span><select id="mit_2937_kapsami_dogrulandi" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan kosullu" data-tur="adli_para"><span>Çocuk hakkında adli para hükmü</span><select id="cocuk_hakkinda_adli_para_hukmu" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan"><span>Bu hükümde KS geri alındı</span><select id="ks_geri_alindi" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan"><span>Özel KS yasağı (107/16, 3713/17)</span><select id="ozel_ks_yasagi" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-        </div>
-        <h4>108/2 için tekerrüre esas en ağır ceza</h4>
-        <div class="izgara">
-          <fieldset class="alan ceza genis">
-            <div class="ceza-girdi">
-              <label><input type="number" id="esas_yil" min="0" step="1" placeholder="0" aria-label="Yıl"><span>yıl</span></label>
-              <label><input type="number" id="esas_ay" min="0" step="1" placeholder="0" aria-label="Ay"><span>ay</span></label>
-              <label><input type="number" id="esas_gun" min="0" step="1" placeholder="0" aria-label="Gün"><span>gün</span></label>
-            </div>
-            <small class="ipucu">Boş bırakılırsa Tekerrür tespiti bölümündeki ilamlardan alınır.</small>
-          </fieldset>
-        </div>
-        <h4>Hesap profili (A01)</h4>
-        <div class="izgara">
-          <label class="alan"><span>Kesirli gün</span><select id="profil_kusurat"><option value="asagi">Aşağı (gün artığı infaz edilmez)</option><option value="yukari">Yukarı</option></select></label>
-          <label class="alan"><span>Yönetmelikteki "ay"</span><select id="profil_ay"><option value="30_gun">30 gün (TCK 61/6)</option><option value="takvim_ayi">Takvim ayı</option></select></label>
-        </div>
-      </details>
-
-      <details class="kart bolum" id="tekerrurBolumu">
-        <summary>Tekerrür tespiti (önceki mahkûmiyetler) <span class="sayac" id="tekerrurSayac"></span></summary>
-        <p class="aciklama">Her önceki ilam TCK 58 karar düğümleriyle (D100–D106) ayrı sınanır: kesinleşme sırası, 18 yaş, kast/taksir, tekerrür süresi, HAGB ve diğer engeller. Mahkûmiyet sayısı tek başına derece değildir.</p>
-        <label class="onay"><input type="checkbox" id="kayit_tam"> Adli sicil kaydı tam; başka mahkûmiyet yok</label>
-        <div id="oncekiListe"></div>
-        <button type="button" class="dugme" id="oncekiEkle">+ Önceki mahkûmiyet ekle</button>
-        <div id="tekerrurSonuc"></div>
-      </details>
-
-      <details class="kart bolum kosullu-bolum" id="cekBolumu">
-        <summary>Çek ve adli para ödemeleri <span class="sayac" id="cekSayac"></span></summary>
-        <div class="izgara">
-          <label class="alan cek-alani"><span>m.6 bedel + faiz tam ödendi (tespit)</span><select id="cek_m6" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan cek-alani"><span>Şikâyetten geçerli vazgeçme</span><select id="cek_vazgecme" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan cek-alani"><span>Geçici m.5 uygulama kararı</span><select id="cek_gecici5" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-          <label class="alan cek-alani"><span>Vadeli taksit aksama sayısı</span><input type="number" id="cek_aksama" min="0" step="1" placeholder="—"></label>
-          <label class="alan"><span>Kalan günlerin para karşılığı devlete ödendi</span><select id="para_odendi" class="uc"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select></label>
-        </div>
-        <div id="cekSonuc"></div>
-      </details>
+      <div class="sutun-sonuc">
+        <div id="sonuc" class="sonuc" aria-live="polite"></div>
+      </div>
     </section>
 
-    <!-- ================================================================ GEREKÇE -->
-    <section id="panel-gerekce" role="tabpanel" aria-labelledby="sekme-gerekce" class="panel gizli">
-      <div class="sekme-cubugu" id="gerekceSenaryo" role="group" aria-label="Senaryo"></div>
-      <div id="gerekce"></div>
-    </section>
-
-    <!-- ================================================================ MEVZUAT -->
-    <section id="panel-mevzuat" role="tabpanel" aria-labelledby="sekme-mevzuat" class="panel gizli">
+    <!-- MEVZUAT -->
+    <section id="ekran-mevzuat" role="tabpanel" aria-labelledby="sekme-mevzuat" class="ekran gizli">
       <div class="mevzuat-duzen">
-        <div class="kart">
-          <h3>Mevzuat tam metinleri</h3>
-          <div class="arama">
-            <select id="mevzuatSec" aria-label="Mevzuat"></select>
-            <input type="search" id="mevzuatAra" placeholder="Madde no (105/A, gecici 6) veya kelime" aria-label="Ara">
-          </div>
+        <div class="kart mevzuat-arama">
+          <h2>Mevzuat</h2>
+          <select id="mevzuatSec" aria-label="Kanun"></select>
+          <input type="search" id="mevzuatAra" placeholder="Madde no (105/A, geçici 6) veya kelime" aria-label="Ara" autocomplete="off">
           <ol id="mevzuatSonuc" class="madde-listesi"></ol>
         </div>
-        <article class="kart goruntuleyici" id="goruntuleyici" aria-live="polite">
-          <p class="aciklama">Bir madde veya kural seçin. Hesapta kullanılan kurallar aşağıda listelenir.</p>
+        <article class="kart okuma" id="goruntuleyici" aria-live="polite">
+          <p class="ipucu">Bir madde seçin. Sonuç ekranındaki madde bağlantıları buraya açılır.</p>
         </article>
       </div>
-      <div class="kart" id="dayanaklar"></div>
+      <details class="kart katlanir" id="dayanaklarKutu">
+        <summary>Bu hesabın dayandığı kurallar</summary>
+        <div id="dayanaklar"></div>
+      </details>
     </section>
 
-    <!-- ================================================================ SÜRELER -->
-    <section id="panel-sureler" role="tabpanel" aria-labelledby="sekme-sureler" class="panel gizli">
-      <div class="kart">
-        <h3>Denetimli serbestlik müdürlüğüne başvuru (5275 m.105/A-6)</h3>
-        <div class="izgara"><label class="alan"><span>Kurumdan ayrılış</span><input type="date" id="sure_ayrilis"></label></div>
-        <p id="sure_ds" class="sure-sonuc"></p>
-      </div>
-      <div class="kart">
-        <h3>İnfaz işlemine şikâyet (4675 m.5)</h3>
-        <div class="izgara">
+    <!-- SÜRELER -->
+    <section id="ekran-sureler" role="tabpanel" aria-labelledby="sekme-sureler" class="ekran gizli">
+      <div class="sure-izgara">
+        <div class="kart">
+          <h2>DS müdürlüğüne başvuru</h2>
+          <p class="ipucu">5275 m.105/A-6</p>
+          <label class="alan"><span>Kurumdan ayrılış</span><input type="date" id="sure_ayrilis"></label>
+          <p id="sure_ds" class="sure-sonuc"></p>
+        </div>
+        <div class="kart">
+          <h2>İnfaz işlemine şikâyet</h2>
+          <p class="ipucu">4675 m.5</p>
           <label class="alan"><span>Öğrenme tarihi</span><input type="date" id="sure_ogrenme"></label>
           <label class="alan"><span>İşlem tarihi</span><input type="date" id="sure_islem"></label>
+          <p id="sure_sikayet" class="sure-sonuc"></p>
         </div>
-        <p id="sure_sikayet" class="sure-sonuc"></p>
-      </div>
-      <div class="kart">
-        <h3>İnfaz hâkimliği kararına itiraz (4675 m.6)</h3>
-        <div class="izgara">
+        <div class="kart">
+          <h2>İnfaz hâkimliği kararına itiraz</h2>
+          <p class="ipucu">4675 m.6</p>
           <label class="alan"><span>Tebliğ tarihi</span><input type="date" id="sure_teblig"></label>
           <label class="alan"><span>Karar tarihi</span><input type="date" id="sure_karar"></label>
+          <p id="sure_itiraz" class="sure-sonuc"></p>
         </div>
-        <p id="sure_itiraz" class="sure-sonuc"></p>
       </div>
-      <p class="aciklama">Resmî tatil takvimi pakette yoktur; yalnız hafta sonu kaydırması yapılır.</p>
+      <p class="ipucu ortali">Resmî tatiller pakette yok; yalnız hafta sonu kaydırması yapılır.</p>
     </section>
+
+    <footer class="alt-bilgi"><span id="paketBilgi">Kural tabanı yükleniyor…</span></footer>
   </main>
-
-  <footer class="alt-bilgi">
-    <p id="sonucEtiketi"></p>
-    <div class="alt-dugmeler">
-      <button type="button" class="dugme" id="kopyala">Özeti kopyala</button>
-      <button type="button" class="dugme" id="jsonIndir">Sonuç JSON</button>
-      <button type="button" class="dugme" id="yazdir">Yazdır / PDF</button>
-    </div>
-  </footer>
-
-  <template id="oncekiSablon">
-    <div class="onceki">
-      <div class="onceki-baslik">
-        <strong class="onceki-no"></strong>
-        <span class="onceki-durum"></span>
-        <button type="button" class="dugme hafif kucuk sil" aria-label="Sil">Sil</button>
-      </div>
-      <div class="izgara">
-        <label class="alan"><span>Suç tarihi</span><input type="date" data-a="suc_tarihi"></label>
-        <label class="alan"><span>Kesinleşme tarihi</span><input type="date" data-a="kesinlesme_tarihi"></label>
-        <label class="alan"><span>Ceza türü</span>
-          <select data-a="ceza_turu"><option value="sureli_hapis">Süreli hapis</option><option value="adli_para">Adli para</option><option value="muebbet">Müebbet</option><option value="agirlastirilmis_muebbet">Ağırlaştırılmış müebbet</option></select>
-        </label>
-        <fieldset class="alan ceza">
-          <legend>Ceza miktarı</legend>
-          <div class="ceza-girdi">
-            <label><input type="number" min="0" data-a="yil" placeholder="0" aria-label="Yıl"><span>yıl</span></label>
-            <label><input type="number" min="0" data-a="ay" placeholder="0" aria-label="Ay"><span>ay</span></label>
-            <label><input type="number" min="0" data-a="gun" placeholder="0" aria-label="Gün"><span>gün</span></label>
-          </div>
-        </fieldset>
-        <label class="alan"><span>Kast türü</span>
-          <select data-a="kast_turu"><option value="">Bilinmiyor</option><option value="kasit">Kasıt</option><option value="olasi_kast">Olası kast</option><option value="taksir">Taksir</option><option value="bilincli_taksir">Bilinçli taksir</option></select>
-        </label>
-        <label class="alan"><span>İnfaz durumu</span>
-          <select data-a="infaz_durumu"><option value="">Bilinmiyor</option><option value="tamamlandi">Tamamlandı</option><option value="suruyor">Sürüyor</option><option value="baslamadi">Başlamadı</option><option value="hukuken_kalkti">Hukuken kalktı</option></select>
-        </label>
-        <label class="alan"><span>İnfazın hukuken tamamlandığı tarih</span><input type="date" data-a="infaz_tamamlanma_tarihi"></label>
-        <label class="alan"><span>O hükümde geçerli tekerrür</span>
-          <select data-a="tekerrur_uygulanmis_mi"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select>
-        </label>
-        <label class="alan"><span>Karar türü</span>
-          <select data-a="karar_turu"><option value="mahkumiyet">Mahkûmiyet</option><option value="hagb">HAGB (açıklanmamış)</option><option value="hagb_aciklandi">HAGB açıklandı</option></select>
-        </label>
-        <label class="alan"><span>CMK 272/3 engeli</span>
-          <select data-a="cmk_272_3_engeli"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select>
-        </label>
-        <label class="alan"><span>Yabancı mahkeme kararı</span>
-          <select data-a="yabanci_mahkeme_karari"><option value="hayir">Hayır</option><option value="evet">Evet</option><option value="">Bilinmiyor</option></select>
-        </label>
-        <label class="alan"><span>Yabancı kararda 58/4 istisna suçu</span>
-          <select data-a="yabanci_istisna_sucu"><option value="">Bilinmiyor</option><option value="hayir">Hayır</option><option value="evet">Evet</option></select>
-        </label>
-        <label class="alan"><span>Sırf askerî suç</span>
-          <select data-a="sirf_askeri_suc"><option value="hayir">Hayır</option><option value="evet">Evet</option><option value="">Bilinmiyor</option></select>
-        </label>
-        <label class="alan"><span>Suç tarihindeki yaş</span><input type="number" min="0" data-a="suclunun_o_tarihteki_yasi" placeholder="doğum tarihinden"></label>
-      </div>
-      <ul class="onceki-nedenler"></ul>
-    </div>
-  </template>
 
   <script type="module" src="ui/uygulama.js"></script>
 </body>

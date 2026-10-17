@@ -1,7 +1,7 @@
 // Süreler sekmesi: usul süreleri hesaplayıcıları.
 import { dsBasvuruSuresi, sikayetSuresi, itirazSuresi } from '../cekirdek/index.js';
 import { $, esc } from './yardimci.js';
-import { kuralCipi } from './gorunum.js';
+import { kuralCipi } from './mevzuat-gorunumu.js';
 
 export function surelerCiz(kt) {
   const yaz = (id, sonuc) => ($(id).innerHTML = sonuc ? `${esc(sonuc.aciklama)} ${kuralCipi(sonuc.kural)}` : '<span class="ipucu">Tarih girin.</span>');

@@ -4,10 +4,22 @@
 
 import { sha256Hex } from '../cekirdek/index.js';
 import { $, esc, cip, dogrulamaEtiketi } from './yardimci.js';
-import { kuralCipi } from './gorunum.js';
 
 let kt = null;
 let depo = null;
+
+export function kuralCipi(id) {
+  if (!kt?.kurallar.has(id)) return cip('kural', id);
+  const o = kt.kuralOzeti(id);
+  return cip('kural', id, { baslik: `${o.mevzuat.join(', ')} — ${o.ozet}`, veri: { kural: id } });
+}
+
+// "U03:govde:105/A" → "5275 m.105/A"
+export function maddeAdi(maddeId) {
+  const [kaynak, , no = ''] = String(maddeId).split(':');
+  const m = kt?.mevzuatListesi.find((x) => x.kaynak_id === kaynak);
+  return `${m ? m.mevzuat_numarasi + ' ' : ''}${maddeNoMetni(no)}`;
+}
 
 export function mevzuatKur(kuralTabani, mevzuatDeposu) {
   kt = kuralTabani;
@@ -55,7 +67,7 @@ export async function maddeGoster(maddeId) {
   } catch (h) {
     el.innerHTML = `<p class="aciklama">Metin yüklenemedi: ${esc(h.message)}</p>`;
   }
-  el.scrollIntoView({ block: 'nearest' });
+  el.scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
 export async function kuralGoster(kuralId) {
@@ -76,7 +88,7 @@ export async function kuralGoster(kuralId) {
       const k = await depo.kanit(id);
       const ozet = k.metin ? await sha256Hex(k.metin) : null;
       const dogru = ozet === null ? null : ozet === k.madde_metin_sha256;
-      parcalar.push(`<section class="kanit"><h4>${esc(id)} · <button type="button" class="baglanti" data-madde="${esc(k.madde_id)}">${esc(k.madde_id)}</button>
+      parcalar.push(`<section class="kanit"><h4>${esc(id)} · <button type="button" class="baglanti" data-madde="${esc(k.madde_id)}">${esc(maddeAdi(k.madde_id))}</button>
         ${dogru === true ? cip('tamam', 'SHA-256 doğrulandı', { baslik: k.madde_metin_sha256 }) : dogru === false ? cip('inceleme', 'SHA-256 uyuşmadı') : cip('bilgi', 'Özet doğrulanamadı')}</h4>
         <div class="madde-metni">${esc((k.metin || '').trim())}</div>
         <p class="ipucu">Hukuki özet metinle özdeş değildir; kanıt, kuralın dayandığı madde metnidir.</p></section>`);
@@ -90,17 +102,16 @@ export async function kuralGoster(kuralId) {
 export function dayanaklarCiz(c) {
   const el = $('dayanaklar');
   if (!c?.secilen_kural_idleri?.length) {
-    el.innerHTML = '<h3>Bu hesabın dayanakları</h3><p class="aciklama">Hesap yapıldığında listelenir.</p>';
+    el.innerHTML = '<p class="ipucu">Hesap yapıldığında listelenir.</p>';
     return;
   }
   const kaynaklar = c.kaynak_idleri.map((id) => kt.kaynaklar.get(id)).filter(Boolean);
-  el.innerHTML = `<h3>Bu hesabın dayanakları (${c.secilen_kural_idleri.length} kural)</h3>
-    <p class="aciklama">${esc(kt.paket.paket.dogrulama_siniri)}</p>
+  el.innerHTML = `<p class="ipucu">${c.secilen_kural_idleri.length} kural · ${esc(kt.paket.paket.dogrulama_siniri)}</p>
     <ul class="dayanak-listesi">${c.secilen_kural_idleri
       .map((id) => {
         const o = kt.kuralOzeti(id);
         const [etiket, sinif] = dogrulamaEtiketi(o.dogrulama);
-        return `<li>${kuralCipi(id)} ${esc(o.ozet)} ${cip(sinif, etiket)}<div class="ipucu">${o.madde_idleri.map((m) => `<button type="button" class="baglanti" data-madde="${esc(m)}">${esc(m)}</button>`).join(' · ') || esc(o.mevzuat.join(' · '))}</div></li>`;
+        return `<li>${kuralCipi(id)} ${esc(o.ozet)} ${cip(sinif, etiket)}<div class="ipucu">${o.madde_idleri.map((m) => `<button type="button" class="baglanti" data-madde="${esc(m)}">${esc(maddeAdi(m))}</button>`).join(' · ') || esc(o.mevzuat.join(' · '))}</div></li>`;
       })
       .join('')}</ul>
     <details><summary>Kaynaklar (${kaynaklar.length})</summary><ul class="not-listesi">${kaynaklar

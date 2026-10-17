@@ -1,21 +1,9 @@
-// Arayüz yardımcıları: kaçışlama, biçimlendirme, kalıcı depolama.
-import { takvim as T } from '../cekirdek/index.js';
+// Arayüz yardımcıları: kaçışlama, çip, kalıcı depolama, bildirim.
 
 export const $ = (id) => document.getElementById(id);
 
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-
-export const trT = (s) => (s ? T.trTarih(s) : '—');
-
-export const DURUM_ETIKETI = {
-  varsayimli_senaryo: 'Varsayımlı senaryo',
-  hukuki_inceleme_gerekli: 'Hukuki inceleme gerekli',
-  eksik_veri: 'Eksik veri',
-  uygulanamaz: 'Uygulanamaz',
-};
-
-export const SEVIYE_ETIKETI = { inceleme: 'Hukuki inceleme', varsayim: 'Varsayım', bilgi: 'Bilgi', eksik: 'Eksik veri' };
 
 export const DOGRULAMA_ETIKETI = {
   resmi_metin: ['Resmî metin', 'tamam'],
@@ -34,14 +22,6 @@ export function dogrulamaEtiketi(d) {
 export function cip(sinif, metin, { baslik = '', veri = null } = {}) {
   const v = veri ? Object.entries(veri).map(([k, d]) => ` data-${k}="${esc(d)}"`).join('') : '';
   return `<span class="cip ${esc(sinif)}"${baslik ? ` title="${esc(baslik)}"` : ''}${v}>${esc(metin)}</span>`;
-}
-
-export function deger3(d) {
-  return d === true ? '<span class="d3 dogru" title="doğru">✓</span>' : d === false ? '<span class="d3 yanlis" title="yanlış">✗</span>' : '<span class="d3 belirsiz" title="belirsiz">?</span>';
-}
-
-export function gunMetni(n) {
-  return n >= 60 ? T.gunMetni(n) : '';
 }
 
 const chromeApi = globalThis.chrome;
@@ -80,13 +60,4 @@ export function bildir(metin) {
   el.textContent = metin;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1800);
-}
-
-export function dosyaIndir(ad, icerik, tur = 'application/json') {
-  const blob = new Blob([icerik], { type: tur });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = ad;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
