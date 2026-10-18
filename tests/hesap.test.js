@@ -275,3 +275,20 @@ test('Politika: motor yalnız izin verilen durumları üretir; kurumda kalış n
           }
         }
 });
+
+test('30/03/2020 öncesi suç: geçici 6/1 ile geçici 10/6 birlikte uygulanır (3 + 3 = KS\'ye 6 yıl)', () => {
+  const hesap = (suc_tarihi) => senaryo(hesapla(kt, vaka({ suc_tarihi, hukumdeki_sonuc_ceza: { yil: 20 }, kanun_madde_fikra_bent: { kanun: 5237, madde: '142' } }, { infaza_baslama_tarihi: '2026-01-01' })));
+  const eski = hesap('2019-06-01');
+  const g10 = eski.ds_yollari.find((y) => y.id === 'gecici10_6');
+  assert.equal(eski.takvim.kosullu_saliverilme, '2036-01-01');
+  assert.equal(eski.secilen_ds_yolu, 'gecici10_6');
+  assert.deepEqual([g10.dayanak_yol, g10.toplam_pencere_yil, g10.tarih], ['DS_gecici6_1', 6, '2030-01-01']);
+  assert.equal(eski.takvim.kurumdan_cikis, '2030-01-01');
+  assert.match(g10.kalemler[0].ad, /geçici 6, KS'ye 3 yıl/);
+  assert.ok(eski.notlar.some((n) => n.kod === 'R133' && /3 \+ 3 yıl/.test(n.mesaj)));
+  // 30/03/2020 sonrası: geçici 6/1 yok; 10/6 olağan 105/A/1 penceresine eklenir (1 + 3).
+  const yeni = hesap('2021-06-01');
+  const y10 = yeni.ds_yollari.find((y) => y.id === 'gecici10_6');
+  assert.deepEqual([y10.dayanak_yol, y10.toplam_pencere_yil, yeni.takvim.kurumdan_cikis], ['DS_105A_1', 4, '2032-01-01']);
+  assert.ok(!yeni.notlar.some((n) => n.kod === 'R133'));
+});

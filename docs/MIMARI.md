@@ -139,9 +139,13 @@ olduğundan zaman çizelgesi aynı formülle kurulur (`gecici_10_6_modulu.tarih_
   üzeri/müebbette 3 ay, normal açığa ayrılmadan 3 yıl önce). Normal tarihten erkense açığa
   geçiş tarihi olur. Talebe bağlı değildir.
 * **Erken DS** (`hesap/ds.js`): max(25/12/2025, açıkta 3 ayın tamamlanması, normal DS
-  tarihinden 3 yıl önce). Normal DS tarihi 105/A yollarından alınır; geçici 6
-  pencereleriyle otomatik toplama yapılmaz (R133), bu durumda inceleme notu üretilir.
-  Olağan yol daha erkense olağan yol seçilir (R134). KS tarihi değişmez.
+  tarihinden 3 yıl önce). Normal DS tarihi kişinin hukuken geçerli pencereli yolundan
+  alınır (`tarih_formulleri.normal_DS_tarihi`; 10/6'daki "ilgili mevzuat uyarınca"):
+  105/A/1, 105/A/3-a/b ve 30/03/2020 öncesi suçta geçici 6/1 (3 yıl) ya da 6/2-a (4 yıl).
+  Böylece 6/1 ile 10/6 birlikte uygulanır (3 + 3 = KS'ye 6 yıl); seçilen dayanak
+  `dayanak_yol`, toplam pencere `toplam_pencere_yil` olarak kaydedilir ve gerekçede
+  yazılır. Toplamada belirleyici (en geç) ilamın dayanağı esas alınır. Olağan yol daha
+  erkense olağan yol seçilir (R134). KS tarihi değişmez.
 8. **Takvim ve durum**: kurumdan çıkış, KS, hak ederek tahliye, 107/6 denetim bitişi;
    gerekli kararlar; notların seviyesinden durum.
 

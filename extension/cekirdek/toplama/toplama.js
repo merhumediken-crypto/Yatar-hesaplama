@@ -249,13 +249,18 @@ function birlesikYollar(listeler, kayitlar, S) {
   return listeler[0].map((ilk, j) => {
     const yollar = listeler.map((l) => l[j]);
     const uygun = hepsi(yollar.map((y) => y.uygun));
-    // Toplamaya uygulanmayan yolun, yalnız bazı ilamlarda uygun olduğu için üretilmiş notları taşınmaz.
+    // Ortak tarih en geç ilamın tarihidir; kalemler ve geçici 10/6 dayanağı o ilamdan gelir.
+    const bagli = uygun === true ? yollar.find((x) => x.tarih === enGec(...yollar.map((z) => z.tarih))) || ilk : null;
+    // Toplamaya uygulanmayan yolun, yalnız bazı ilamlarda uygun olduğu için üretilmiş notları taşınmaz;
+    // dayanağa bağlı not (R133: geçici 6 + 10/6) yalnız belirleyici ilamdan alınır.
     const notKaynagi = uygun === true ? yollar : yollar.filter((x) => x.uygun !== true);
-    const y = { ...ilk, uygun, ihtiyatli: yollar.some((x) => x.ihtiyatli), yarar_yok: yollar.some((x) => x.yarar_yok), notlar: tekillestir(notKaynagi.flatMap((x) => x.notlar || []), (n) => n.mesaj) };
+    const notlar = notKaynagi.flatMap((x) => (x.notlar || []).filter((n) => n.kod !== 'R133' || x === bagli));
+    const y = { ...ilk, uygun, ihtiyatli: yollar.some((x) => x.ihtiyatli), yarar_yok: yollar.some((x) => x.yarar_yok), notlar: tekillestir(notlar, (n) => n.mesaj) };
     delete y.kapi_sonucu;
     if (uygun === true) {
-      y.tarih = enGec(...yollar.map((x) => x.tarih));
-      y.kalemler = yollar.find((x) => x.tarih === y.tarih)?.kalemler || ilk.kalemler;
+      y.tarih = bagli.tarih;
+      y.kalemler = bagli.kalemler || ilk.kalemler;
+      if ('dayanak_yol' in bagli) Object.assign(y, { dayanak_yol: bagli.dayanak_yol, toplam_pencere_yil: bagli.toplam_pencere_yil });
     } else {
       const engel = yollar.findIndex((x) => x.uygun === false);
       const belirsiz = yollar.findIndex((x) => x.uygun !== true && x.uygun !== false);

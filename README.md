@@ -46,7 +46,7 @@ Aynı dosya suç tarihi 01/01/2023 olursa:
 - **Erken DS:** açıkta en az 3 ay ve normal DS tarihinden 3 yıl önce; hiçbir tarih 25/12/2025'ten önce olamaz.
 - **Kapsam dışı (SC06):** TCK 82/1-d,e,f; deprem/yapı ölümleri; TCK 102, 103, 104/2-3; İkinci Kitap Dördüncü Kısım 4-7. bölümler; terör ve örgüt faaliyeti suçları.
 - **Olağan yol daha erkense:** olağan yol seçilir; 3 ay şartı ona taşınmaz.
-- **30/03/2020 öncesi suçlar:** 10/6, olağan 105/A tarihi üzerinden kurulur. Geçici 6 penceresiyle birlikte (3 + 3 yıl) uygulanması otomatik yapılmaz, "Dikkat edilmesi gerekenler" altında belirtilir.
+- **30/03/2020 öncesi suçlar:** 10/6, "ilgili mevzuat uyarınca" DS tarihinden 3 yıl erken yararlandırır. Bu suçlarda ilgili mevzuat geçici 6/1'dir (KS'ye 3 yıl; 0-6 yaş çocuklu kadın ve 70 yaşta 6/2-a ile 4 yıl), bu yüzden iki hüküm birlikte uygulanır: **3 + 3 = KS'ye 6 yıl** kala DS (açıkta en az 3 ay şartıyla). Örnek: 2019 suçu, 20 yıl, giriş 01/01/2026 → KS 01.01.2036, DS ile çıkış 01.01.2030 (2021 suçunda 105/A + 10/6 ile 01.01.2032).
 
 DS talebi olağan kabul edilir. Talep olmazsa çıkış koşullu salıverilmede olur ve sonuç kartında ayrı satır olarak gösterilir.
 

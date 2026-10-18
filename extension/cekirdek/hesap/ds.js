@@ -8,9 +8,11 @@
 //   DS_gecici6_2a 5275 geçici 6/2-a, 6/3  0-6 çocuklu kadın veya 70 yaş: 4 yıl (D027)
 //   DS_gecici6_2b 5275 geçici 6/2-b, 6/3  65 yaş + rapor: azami süre sınırı yok (D027)
 //   gecici10_6    5275 geçici 10/6        31/07/2023 ve öncesi suç: en az 3 ay açıkta → normal DS'den 3 yıl erken (D024, R132-R134)
+//                 "Normal DS" kişinin hukuken geçerli penceresidir: 30/03/2020 öncesi suçta geçici 6/1
+//                 (KS'ye 3 yıl) ya da 6/2-a (4 yıl) dahil; 10/6 bunun üzerine 3 yıl ekler (3 + 3).
 // Asgari kurum süresi (D025, 105/A/1 son cümle) yalnız 105/A usulünün şartıdır.
 
-import { yilEkle, enGec, enErken, once, sonra, trTarih } from '../zaman/takvim.js';
+import { yilEkle, enGec, once, sonra, trTarih } from '../zaman/takvim.js';
 import { kurumAyiEkle } from '../zaman/profil.js';
 import { kapiliBaglam } from '../baglam/karar-baglami.js';
 import { degerlendir } from '../dil/kosul.js';
@@ -78,10 +80,14 @@ export function dsYollari(kt, motor, ortam, baglam, { ksTarihi, asgariTarihi, ac
   // Geçici 10/6 (7571 m.27; R132-R134): max(yürürlük, açıkta en az 3 ay, normal DS tarihinden 3 yıl önce).
   // Açığa geçiş tarihi açık kurum planından gelir (geçici 10/6 erken açık dahil). Olağan yol daha
   // erkense o yol seçilir; 3 ay açık şartı olağan yola taşınmaz (R134).
-  // Normal DS tarihi 105/A yollarından alınır; geçici 6 pencereleriyle otomatik toplama yapılmaz (R133).
-  const normal = yollar.filter((y) => y.uygun === true && y.tarih && y.id.startsWith('DS_105A'));
-  const enIyiNormal = normal.length ? enErken(...normal.map((y) => y.tarih)) : null;
-  const gecici6 = yollar.some((y) => y.uygun === true && y.id.startsWith('DS_gecici6'));
+  // Normal DS tarihi: 10/6 "ilgili mevzuat uyarınca" DS uygulamasından 3 yıl erken yararlandırır;
+  // ilgili mevzuat kişinin hukuken geçerli penceresidir (gecici_10_6_modulu.tarih_formulleri.
+  // normal_DS_tarihi: "bütün dosyalarda sabit bir yıl varsayılmaz"). 30/03/2020 öncesi suçta bu,
+  // geçici 6/1'in 3 yıllık (6/2-a'da 4 yıllık) penceresidir; 10/6 onun üzerine 3 yıl ekler.
+  // Pencereli yollar esas alınır; sınırsız 6/2-b zaten bütün süreyi kapsar.
+  const normal = yollar.filter((y) => y.uygun === true && y.tarih && y.pencere_yil && (y.id.startsWith('DS_105A') || y.id.startsWith('DS_gecici6')));
+  const dayanak = normal.length ? normal.reduce((a, b) => (once(b.tarih, a.tarih) ? b : a)) : null;
+  const enIyiNormal = dayanak?.tarih || null;
   const g10 = motor.karar('D024', baglam);
   const r55 = kt.p('R055');
   const r56 = kt.p('R056');
@@ -105,12 +111,15 @@ export function dsYollari(kt, motor, ortam, baglam, { ksTarihi, asgariTarihi, ac
     kayit10.neden = 'Erkene çekilecek bir DS yolu bulunamadı.';
   } else {
     const erken = r56.normal_DS_tarihinden_erken_yil;
-    kayit10.kalemler.push({ ad: `Normal DS tarihinden (${trTarih(enIyiNormal)}) ${erken} yıl erken`, tarih: yilEkle(enIyiNormal, -erken) });
+    const gecici6 = dayanak.id.startsWith('DS_gecici6');
+    kayit10.dayanak_yol = dayanak.id;
+    kayit10.toplam_pencere_yil = dayanak.pencere_yil + erken;
+    kayit10.kalemler.push({ ad: `Normal DS tarihinden (${trTarih(enIyiNormal)} · ${gecici6 ? `geçici 6, KS'ye ${dayanak.pencere_yil} yıl` : `105/A, KS'ye ${dayanak.pencere_yil} yıl`}) ${erken} yıl erken`, tarih: yilEkle(enIyiNormal, -erken) });
     kayit10.kalemler.push({ ad: `Açık cezaevinde en az ${r56.acik_kurum_asgari_ay} ay`, tarih: kurumAyiEkle(ortam.profil, acik.tarih, r56.acik_kurum_asgari_ay) });
     kayit10.kalemler.push({ ad: 'Geçici 10/6 yürürlüğü (25/12/2025)', tarih: r55.yururluk });
     kayit10.tarih = enGec(E, ...kayit10.kalemler.map((x) => x.tarih));
     if (gecici6) {
-      kayit10.notlar.push({ seviye: 'inceleme', kod: 'R133', mesaj: 'Suç 30/03/2020 öncesi: geçici 10/6 normal 105/A tarihi üzerinden hesaplandı. Geçici 6 penceresiyle birlikte uygulanması (ör. 3 + 3 yıl) otomatik yapılmadı; uygulama ve karar yönünden incelenmeli (R133).', kurallar: ['R133', 'R050'] });
+      kayit10.notlar.push({ seviye: 'bilgi', kod: 'R133', mesaj: `Suç 30/03/2020 öncesi: geçici 10/6, geçici 6 penceresine (KS'ye ${dayanak.pencere_yil} yıl) eklenerek uygulandı; koşullu salıverilmeye ${kayit10.toplam_pencere_yil} yıl kala DS (${dayanak.pencere_yil} + ${erken} yıl; 10/6'daki "ilgili mevzuat uyarınca" ifadesi).`, kurallar: ['R133', dayanak.kural], yalniz_secilince: true });
     }
     kayit10.notlar.push({ seviye: 'bilgi', kod: 'R132', mesaj: 'Geçici 10/6: hükümlünün talebi, açık kurumda fiilen en az 3 ay, iyi hâl ve kurum/hâkimlik kararı gerekir; koşullu salıverilme tarihi değişmez (R132, R133).', kurallar: ['R132', 'R133'], yalniz_secilince: true });
   }
