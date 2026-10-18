@@ -7,6 +7,8 @@ import { $, esc, cip, dogrulamaEtiketi } from './yardimci.js';
 
 let kt = null;
 let depo = null;
+let aramaSurumu = 0;
+let okumaSurumu = 0;
 
 export function kuralCipi(id) {
   if (!kt?.kurallar.has(id)) return cip('kural', id);
@@ -31,14 +33,17 @@ export function mevzuatKur(kuralTabani, mevzuatDeposu) {
 }
 
 export async function aramaYap() {
+  const surum = ++aramaSurumu;
   const liste = $('mevzuatSonuc');
   liste.innerHTML = '<li class="ipucu">Yükleniyor…</li>';
   try {
     const sonuc = await depo.ara($('mevzuatSec').value, $('mevzuatAra').value, 60);
+    if (surum !== aramaSurumu) return;
     liste.innerHTML = sonuc.length
       ? sonuc.map((a) => `<li><button type="button" class="baglanti" data-madde="${esc(a.madde_id)}"><b>${esc(maddeNoMetni(a.madde_no))}</b> ${esc(a.baslik || '')}${a.mulga ? ' <span class="ipucu">(mülga)</span>' : ''}</button></li>`).join('')
       : '<li class="ipucu">Sonuç yok.</li>';
   } catch (h) {
+    if (surum !== aramaSurumu) return;
     liste.innerHTML = `<li class="ipucu">Metin yüklenemedi: ${esc(h.message)}</li>`;
   }
 }
@@ -60,17 +65,22 @@ function maddeHtml(m) {
 }
 
 export async function maddeGoster(maddeId) {
+  const surum = ++okumaSurumu;
   const el = $('goruntuleyici');
   el.innerHTML = '<p class="ipucu">Yükleniyor…</p>';
   try {
-    el.innerHTML = maddeHtml(await depo.madde(maddeId));
+    const madde = await depo.madde(maddeId);
+    if (surum !== okumaSurumu) return;
+    el.innerHTML = maddeHtml(madde);
   } catch (h) {
+    if (surum !== okumaSurumu) return;
     el.innerHTML = `<p class="aciklama">Metin yüklenemedi: ${esc(h.message)}</p>`;
   }
   el.scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
 export async function kuralGoster(kuralId) {
+  const surum = ++okumaSurumu;
   const el = $('goruntuleyici');
   const o = kt.kuralOzeti(kuralId);
   const r = kt.kural(kuralId);
@@ -87,6 +97,7 @@ export async function kuralGoster(kuralId) {
     try {
       const k = await depo.kanit(id);
       const ozet = k.metin ? await sha256Hex(k.metin) : null;
+      if (surum !== okumaSurumu) return;
       const dogru = ozet === null ? null : ozet === k.madde_metin_sha256;
       parcalar.push(`<section class="kanit"><h4>${esc(id)} · <button type="button" class="baglanti" data-madde="${esc(k.madde_id)}">${esc(maddeAdi(k.madde_id))}</button>
         ${dogru === true ? cip('tamam', 'SHA-256 doğrulandı', { baslik: k.madde_metin_sha256 }) : dogru === false ? cip('inceleme', 'SHA-256 uyuşmadı') : cip('bilgi', 'Özet doğrulanamadı')}</h4>
@@ -96,7 +107,7 @@ export async function kuralGoster(kuralId) {
       parcalar.push(`<p class="aciklama">${esc(id)} yüklenemedi: ${esc(h.message)}</p>`);
     }
   }
-  kutu.innerHTML = parcalar.join('') || '<p class="ipucu">Bu kural için kanıt kaydı yok.</p>';
+  if (surum === okumaSurumu) kutu.innerHTML = parcalar.join('') || '<p class="ipucu">Bu kural için kanıt kaydı yok.</p>';
 }
 
 export function dayanaklarCiz(c) {

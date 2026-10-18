@@ -6,6 +6,7 @@
 //  - eklentinin 0.1 sürümündeki alan adları (ilam, mahsup_gun …) geriye uyum için çevrilir.
 
 import { gecerliTarih } from '../zaman/takvim.js';
+import { PROFIL_SECENEKLERI } from '../zaman/profil.js';
 
 export const KAST_TURLERI = ['kasit', 'olasi_kast', 'taksir', 'bilincli_taksir', 'bilinmiyor'];
 export const CEZA_TURLERI = ['sureli_hapis', 'muebbet', 'agirlastirilmis_muebbet', 'adli_para', 'adli_paradan_cevrilen_hapis', 'tazyik', 'disiplin_hapsi', 'zorlama_hapsi', 'diger'];
@@ -39,7 +40,7 @@ class Denetci {
   tamsayi(o, alan, yol, { min = 0 } = {}) {
     const v = o?.[alan];
     if (v === undefined || v === null || v === '') return null;
-    if (Number.isInteger(v) && v >= min) return v;
+    if (Number.isSafeInteger(v) && v >= min) return v;
     this.sorun(yol, `Tam sayı bekleniyor: ${JSON.stringify(v)}`);
     return null;
   }
@@ -59,14 +60,14 @@ class Denetci {
   ceza(o, alan, yol) {
     const c = o?.[alan];
     if (c === undefined || c === null) return null;
-    if (typeof c !== 'object') {
+    if (typeof c !== 'object' || Array.isArray(c)) {
       this.sorun(yol, 'Ceza {yil, ay, gun} biçiminde olmalı');
       return null;
     }
     const sonuc = {};
     for (const a of ['yil', 'ay', 'gun']) {
       const v = c[a] ?? 0;
-      if (!Number.isInteger(v) || v < 0) {
+      if (!Number.isSafeInteger(v) || v < 0) {
         this.sorun(`${yol}.${a}`, `Tam sayı bekleniyor: ${JSON.stringify(c[a])}`);
         return null;
       }
@@ -89,9 +90,20 @@ function geriyeUyum(v) {
 }
 
 function ilamNormallestir(d, i, yol) {
-  const mfb = i.kanun_madde_fikra_bent || {};
+  if (!i || typeof i !== 'object' || Array.isArray(i)) {
+    d.sorun(yol, 'İlam kaydı nesne olmalı.');
+    i = {};
+  }
+  let mfb = i.kanun_madde_fikra_bent || {};
+  if (typeof mfb !== 'object' || Array.isArray(mfb)) {
+    d.sorun(`${yol}.kanun_madde_fikra_bent`, 'Suç maddesi nesne olmalı.');
+    mfb = {};
+  }
   const kanun = mfb.kanun === undefined || mfb.kanun === null || mfb.kanun === '' ? null : mfb.kanun;
-  if (kanun !== null && !Number.isInteger(kanun)) d.sorun(`${yol}.kanun_madde_fikra_bent.kanun`, `Kanun numarası tam sayı olmalı: ${JSON.stringify(kanun)}`);
+  if (kanun !== null && (!Number.isSafeInteger(kanun) || kanun <= 0)) d.sorun(`${yol}.kanun_madde_fikra_bent.kanun`, `Kanun numarası pozitif tam sayı olmalı: ${JSON.stringify(kanun)}`);
+  for (const [alan, desen] of [['madde', /^[1-9]\d*(?:\/[A-Z])?$/i], ['fikra', /^[1-9]\d*$/], ['bent', /^[a-zçğıöşü]$/i]]) {
+    if (mfb[alan] != null && String(mfb[alan]).trim() !== '' && !desen.test(String(mfb[alan]).trim().replace(/^0+(?=\d)/, ''))) d.sorun(`${yol}.kanun_madde_fikra_bent.${alan}`, 'Geçersiz madde/fıkra/bent biçimi.');
+  }
   const altMetin = (x) => (x === undefined || x === null || String(x).trim() === '' ? null : String(x).trim().toLowerCase());
   return {
     ilam_id: d.metin(i, 'ilam_id') || 'İlam-1',
@@ -99,7 +111,7 @@ function ilamNormallestir(d, i, yol) {
     suc_tarihi_hukuken_belirlendi: d.mantiksal(i, 'suc_tarihi_hukuken_belirlendi', `${yol}.suc_tarihi_hukuken_belirlendi`),
     kanun_madde_fikra_bent: {
       kanun: Number.isInteger(kanun) ? kanun : null,
-      madde: mfb.madde === undefined || mfb.madde === null || String(mfb.madde).trim() === '' ? null : String(mfb.madde).trim().toUpperCase(),
+      madde: mfb.madde === undefined || mfb.madde === null || String(mfb.madde).trim() === '' ? null : String(mfb.madde).trim().replace(/^0+(?=\d)/, '').toUpperCase(),
       fikra: altMetin(mfb.fikra),
       bent: altMetin(mfb.bent),
     },
@@ -127,6 +139,10 @@ function ilamNormallestir(d, i, yol) {
 
 function oncekiNormallestir(d, o, i) {
   const yol = `onceki_mahkumiyetler[${i}]`;
+  if (!o || typeof o !== 'object' || Array.isArray(o)) {
+    d.sorun(yol, 'Önceki mahkûmiyet kaydı nesne olmalı.');
+    o = {};
+  }
   return {
     ilam_id: d.metin(o, 'ilam_id') || `Önceki-${i + 1}`,
     suc_tarihi: d.tarih(o, 'suc_tarihi', `${yol}.suc_tarihi`),
@@ -148,6 +164,10 @@ function oncekiNormallestir(d, o, i) {
 
 function mahsupNormallestir(d, m, i) {
   const yol = `mahsup_kayitlari[${i}]`;
+  if (!m || typeof m !== 'object' || Array.isArray(m)) {
+    d.sorun(yol, 'Mahsup kaydı nesne olmalı.');
+    m = {};
+  }
   return {
     kayit_id: d.metin(m, 'kayit_id') || `M${i + 1}`,
     tur: d.secim(m, 'tur', `${yol}.tur`, MAHSUP_TURLERI) || 'tutukluluk',
@@ -160,7 +180,24 @@ function mahsupNormallestir(d, m, i) {
 
 export function vakaNormallestir(girdi = {}) {
   const d = new Denetci();
+  if (!girdi || typeof girdi !== 'object' || Array.isArray(girdi)) {
+    d.sorun('$', 'Vaka nesne olmalı.');
+    girdi = {};
+  }
   const v = geriyeUyum(girdi || {});
+  if (v.mahsup_gun != null && (!Number.isSafeInteger(v.mahsup_gun) || v.mahsup_gun < 0)) d.sorun('mahsup_gun', 'Mahsup gün sayısı sıfır veya pozitif tam sayı olmalı.');
+  if (v.profil != null) {
+    if (typeof v.profil !== 'object' || Array.isArray(v.profil)) d.sorun('profil', 'Hesap profili nesne olmalı.');
+    else {
+      for (const [alan, secenekler] of Object.entries(PROFIL_SECENEKLERI)) {
+        if (v.profil[alan] != null && !Object.hasOwn(secenekler, v.profil[alan])) d.sorun(`profil.${alan}`, 'Geçersiz hesap profili seçimi.');
+      }
+      if (v.profil.mahsup_kurumda_gecmis_sayilir != null && typeof v.profil.mahsup_kurumda_gecmis_sayilir !== 'boolean') d.sorun('profil.mahsup_kurumda_gecmis_sayilir', 'Doğru/yanlış bekleniyor.');
+    }
+  }
+  for (const alan of ['suclar_ve_ilamlar', 'onceki_mahkumiyetler', 'mahsup_kayitlari']) {
+    if (v[alan] != null && !Array.isArray(v[alan])) d.sorun(alan, 'Liste bekleniyor.');
+  }
   const ilamlar = Array.isArray(v.suclar_ve_ilamlar) ? v.suclar_ve_ilamlar : [];
   const cek = v.cek || {};
   const vaka = {
@@ -190,5 +227,28 @@ export function vakaNormallestir(girdi = {}) {
     profil: v.profil || null,
   };
   if (!vaka.suclar_ve_ilamlar.length) d.sorun('suclar_ve_ilamlar', 'En az bir ilam gerekir.', 'E011');
+  for (const [n, i] of vaka.suclar_ve_ilamlar.entries()) {
+    if (vaka.dogum_tarihi && i.suc_tarihi && vaka.dogum_tarihi > i.suc_tarihi) d.sorun('dogum_tarihi', 'Doğum tarihi suç tarihinden sonra olamaz.');
+    if (i.kesinlesme_tarihi && i.suc_tarihi && i.kesinlesme_tarihi < i.suc_tarihi) d.sorun(`suclar_ve_ilamlar[${n}].kesinlesme_tarihi`, 'Kesinleşme tarihi suç tarihinden önce olamaz.');
+    if (vaka.infaza_baslama_tarihi && i.suc_tarihi && vaka.infaza_baslama_tarihi < i.suc_tarihi) d.sorun('infaza_baslama_tarihi', 'İnfaza başlama tarihi suç tarihinden önce olamaz.');
+    if (vaka.hesap_tarihi && i.suc_tarihi && i.suc_tarihi > vaka.hesap_tarihi) d.sorun(`suclar_ve_ilamlar[${n}].suc_tarihi`, 'Suç tarihi hesap tarihinden sonra olamaz.');
+  }
+  const ids = new Set();
+  const araliklar = [];
+  for (const m of vaka.mahsup_kayitlari || []) {
+    if (ids.has(m.kayit_id)) d.sorun('mahsup_kayitlari', `Tekrarlanan mahsup kimliği: ${m.kayit_id}`);
+    ids.add(m.kayit_id);
+    if (m.gun === null && !(m.baslangic && m.bitis)) d.sorun('mahsup_kayitlari', `${m.kayit_id}: gün sayısı veya iki tarih gerekir.`);
+    if (m.baslangic && m.bitis) {
+      if (m.bitis < m.baslangic) d.sorun('mahsup_kayitlari', `${m.kayit_id}: bitiş başlangıçtan önce olamaz.`);
+      araliklar.push(m);
+    }
+  }
+  araliklar.sort((a, b) => a.baslangic.localeCompare(b.baslangic));
+  let bitis = null;
+  for (const m of araliklar) {
+    if (bitis && m.baslangic <= bitis) d.sorun('mahsup_kayitlari', `${m.kayit_id}: mahsup dönemleri çakışıyor; aynı gün iki kez sayılamaz.`);
+    if (!bitis || m.bitis > bitis) bitis = m.bitis;
+  }
   return { vaka, sorunlar: d.sorunlar };
 }

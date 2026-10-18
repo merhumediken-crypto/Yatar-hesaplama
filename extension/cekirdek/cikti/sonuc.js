@@ -220,15 +220,37 @@ export function hesapla(kt, girdi = {}, secenekler = {}) {
     uygulanan_madde_idleri: [],
     kural_kanit_idleri: [],
     kaynak_idleri: [],
-    toplama: toplamaDegerlendir(kt, vaka.suclar_ve_ilamlar),
+    toplama: null,
     sonuc_etiketi: kt.paket.cikti_modeli.sonuc_etiketi,
   };
-  if (!ilam) {
+  if (sorunlar.length || !ilam) {
     cikti.durum = 'eksik_veri';
+    cikti.eksik_veri.push(...sorunlar.map((s) => ({ kod: s.kod, alan: s.alan, mesaj: s.mesaj })));
+    cikti.notlar = notlar.liste;
     return cikti;
   }
 
-  const ortam = ortamKur(kt, vaka, ilam, secenekler, notlar);
+  if (vaka.suclar_ve_ilamlar.some((i) => i.suc_tarihi && once(i.suc_tarihi, kt.esik('T01')))) {
+    cikti.durum = 'hukuki_inceleme_gerekli';
+    cikti.notlar = [{ seviye: 'inceleme', kod: 'E014', mesaj: '1 Haziran 2005 öncesi suçlar bu araçta hesaplanmaz.', kurallar: ['R001'] }];
+    return cikti;
+  }
+  if (vaka.suclar_ve_ilamlar.length > 1) {
+    cikti.durum = 'hukuki_inceleme_gerekli';
+    cikti.toplama = vaka.suclar_ve_ilamlar.every((i) => i.suc_tarihi) ? toplamaDegerlendir(kt, vaka.suclar_ve_ilamlar) : null;
+    cikti.notlar = [{ seviye: 'inceleme', kod: 'E007', mesaj: 'Bu sürüm çoklu ilam toplamını hesaplamaz. İlk ilamın sonucu birleşik sonuç olarak gösterilmedi.', kurallar: ['R005', 'R031'] }];
+    return cikti;
+  }
+
+  let ortam;
+  try {
+    ortam = ortamKur(kt, vaka, ilam, secenekler, notlar);
+  } catch (hata) {
+    cikti.durum = 'eksik_veri';
+    cikti.girdi_sorunlari.push({ kod: 'GIRDI', alan: 'sure', mesaj: 'Ceza veya mahsup hesaplanabilir takvim aralığını aşıyor.' });
+    cikti.eksik_veri.push(...cikti.girdi_sorunlari);
+    return cikti;
+  }
   cikti.hesap_tarihi = ortam.hesapTarihi;
   cikti.hesap_profili_id = ortam.profil.id;
   ortam.tekerrur = tekerrurTespit(kt, motor, vaka, ilam);

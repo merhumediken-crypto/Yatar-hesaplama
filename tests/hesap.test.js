@@ -110,7 +110,7 @@ test('18 yaş altı yeni suçta tekerrür senaryoları uygulanamaz', () => {
 });
 
 test('Çocukta 107/5 (2026) gün ağırlığı KS tarihini öne çeker', () => {
-  const c = hesapla(kt, vaka({ suc_tarihi: '2026-08-20', hukumdeki_sonuc_ceza: { yil: 2 }, kanun_madde_fikra_bent: { kanun: 5237, madde: '148' } }, { infaza_baslama_tarihi: '2026-09-01', dogum_tarihi: '2013-01-01' }));
+  const c = hesapla(kt, vaka({ suc_tarihi: '2026-08-20', kesinlesme_tarihi: '2026-08-30', hukumdeki_sonuc_ceza: { yil: 2 }, kanun_madde_fikra_bent: { kanun: 5237, madde: '148' } }, { infaza_baslama_tarihi: '2026-09-01', dogum_tarihi: '2013-01-01' }));
   const S = senaryo(c);
   assert.ok(S.izler.some((i) => i.adim === 'Çocukta gün ağırlığı'));
   assert.equal(T.gunFarki(S.takvim.etkin_baslangic, S.takvim.kosullu_saliverilme), 183); // 365 ağırlıklı gün
@@ -132,12 +132,12 @@ test('Terör suçlusunun ağırlaştırılmış müebbeti: koşullu salıverilme
 });
 
 test('Müebbet: genel 24 yıl, birinci ve ikinci tekerrürde 33 yıl (108/1, 108/3); DS için açık KS\'ye 5 yıl', () => {
-  const c = hesapla(kt, vaka({ suc_tarihi: '2023-08-01', hukumdeki_ceza_turu: 'muebbet', hukumdeki_sonuc_ceza: null }, { infaza_baslama_tarihi: '2022-01-01' }));
-  assert.equal(senaryo(c).takvim.kosullu_saliverilme, '2046-01-01');
-  assert.equal(senaryo(c).acik_kurum.tarih, '2041-01-01');
-  assert.equal(senaryo(c).takvim.DSye_hak_kazanma, '2045-01-01');
-  assert.equal(senaryo(c, 'birinci').takvim.kosullu_saliverilme, '2055-01-01');
-  assert.equal(senaryo(c, 'ikinci').takvim.kosullu_saliverilme, '2055-01-01');
+  const c = hesapla(kt, vaka({ suc_tarihi: '2023-08-01', hukumdeki_ceza_turu: 'muebbet', hukumdeki_sonuc_ceza: null }, { infaza_baslama_tarihi: '2024-01-01' }));
+  assert.equal(senaryo(c).takvim.kosullu_saliverilme, '2048-01-01');
+  assert.equal(senaryo(c).acik_kurum.tarih, '2043-01-01');
+  assert.equal(senaryo(c).takvim.DSye_hak_kazanma, '2047-01-01');
+  assert.equal(senaryo(c, 'birinci').takvim.kosullu_saliverilme, '2057-01-01');
+  assert.equal(senaryo(c, 'ikinci').takvim.kosullu_saliverilme, '2057-01-01');
   // 30/03/2020 öncesi suçta geçici 6/1 müebbette de 3 yıllık pencere verir (kapalıda da, m.6/3)
   const eski = senaryo(hesapla(kt, vaka({ suc_tarihi: '2019-01-01', hukumdeki_ceza_turu: 'muebbet', hukumdeki_sonuc_ceza: null }, { infaza_baslama_tarihi: '2020-01-01', hesap_tarihi: '2025-06-01' })));
   assert.equal(eski.secilen_ds_yolu, 'DS_gecici6_1');

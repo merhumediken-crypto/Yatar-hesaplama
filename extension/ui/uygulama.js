@@ -7,6 +7,7 @@ import { $, depo, sayfaAc, bildir } from './yardimci.js';
 import { bosDosya, dosyaYukle, hesaplanabilir, kapsamDisi, ozelDurum, vakaKur, SURELI_TURLER } from './dosya.js';
 import { TEMEL_SORULAR, TUM_SORULAR, soru, sonrakiSoru, cevaplar, cevapla, bilinmiyorCevabi, gosterilenSenaryo } from './sorular.js';
 import { sonucOzeti, paylasimMetni, muddetnameKarsilastir } from './ozet.js';
+import { gerekceMetni } from './gerekce.js';
 import { maddeCoz } from './tck-maddeleri.js';
 import { cevaplarCiz, soruCiz, soruDegeri, sonucCiz, mahsupOku, mahsupTaslagi, mahsupHesapMetni, muddetnameTablosu } from './ekran.js';
 import { mevzuatKur, aramaYap, maddeGoster, kuralGoster, dayanaklarCiz } from './mevzuat-gorunumu.js';
@@ -30,6 +31,7 @@ const durum = {
   girisTarihli: false,
   mahsupTaslak: null, // mahsup sorusunda düzenlenen satırlar
   uyari: null,
+  hesapHatasi: null,
 };
 
 const veriYukle = async (dosya) => {
@@ -46,19 +48,23 @@ function hesapYap() {
   const d = durum.dosya;
   durum.cikti = null;
   durum.talepsiz = null;
+  durum.hesapHatasi = null;
   if (hesaplanabilir(d)) {
     try {
       durum.cikti = hesapla(durum.kt, vakaKur(d, T.bugunIstanbul()));
       durum.talepsiz = hesapla(durum.kt, vakaKur(d, T.bugunIstanbul(), { dsTalebi: false }));
     } catch (hata) {
       console.error(hata);
-      bildir(`Hesap hatası: ${hata.message}`);
+      durum.cikti = null;
+      durum.talepsiz = null;
+      durum.hesapHatasi = `Hesap oluşturulamadı: ${hata.message}. Girilen bilgileri kontrol edin.`;
     }
   }
 }
 
 function sonucuCiz() {
   durum.ozet = sonucOzeti(durum.kt, durum.dosya, durum.cikti, durum.gorunen, durum.talepsiz);
+  if (durum.hesapHatasi) durum.ozet = { durum: 'hesaplanamadi', baslik: 'Hesap hatası', mesaj: durum.hesapHatasi, karsilastirma: [], varsayimlar: [], dikkat: [] };
   const onSonuc = !!durum.aktif && TEMEL_SORULAR.includes(durum.aktif) && !durum.aktif.cevaplandi(durum.dosya);
   const md = durum.dosya.muddetname;
   sonucCiz(durum.ozet, { gorunen: durum.gorunen, acikNeden: durum.acikNeden, paylasVar, onSonuc, md, muddetname: muddetnameKarsilastir(durum.ozet, md) });
@@ -95,7 +101,7 @@ function yenile({ kaydet = true } = {}) {
   durum.aktif = durum.duzenlenen ? soru(durum.duzenlenen) : sonrakiSoru(durum.kt, durum.dosya, T.bugunIstanbul(), durum.cikti);
   soruyuCiz();
   sonucuCiz();
-  if (kaydet) depo.yaz(DOSYA_ANAHTARI, durum.dosya);
+  if (kaydet) depo.yaz(DOSYA_ANAHTARI, durum.dosya).catch(() => bildir('Son cevap kaydedilemedi. Bu ekranı kapatmadan önce yeniden deneyin.'));
   if (!$('ekran-mevzuat').classList.contains('gizli')) dayanaklarCiz(durum.cikti);
 }
 
@@ -152,8 +158,11 @@ function devam() {
   }
   const bugun = T.bugunIstanbul();
   if (s.id === 'suc_tarihi' && T.once(bugun, deger)) return uyar('Suç tarihi bugünden sonra olamaz.');
+  if (s.id === 'suc_tarihi' && d.ek.dogum_tarihi && T.once(deger, d.ek.dogum_tarihi)) return uyar('Suç tarihi doğum tarihinden önce olamaz.');
+  if (s.id === 'suc_tarihi' && d.giris?.tarih && T.once(d.giris.tarih, deger)) return uyar('Suç tarihi girilmiş giriş tarihinden sonra olamaz.');
   if (s.id === 'dogum_tarihi' && d.suc_tarihi && !T.once(deger, d.suc_tarihi)) return uyar('Doğum tarihi suç tarihinden önce olmalı.');
   if (s.tur === 'giris' && d.suc_tarihi && T.once(deger.tarih, d.suc_tarihi)) return uyar('Giriş tarihi suç tarihinden önce olamaz.');
+  if (s.tur === 'giris' && d.konum === 'cezaevinde' && T.once(bugun, deger.tarih)) return uyar('Cezaevine giriş tarihi bugünden sonra olamaz.');
   cevapla(d, s, deger);
   ilerle();
 }
@@ -276,19 +285,23 @@ function soruKartiTus(e) {
 // Sonuç ve genel olaylar
 // ---------------------------------------------------------------------------
 
-async function kopyala() {
-  const metin = paylasimMetni(durum.dosya, durum.ozet);
+async function kopyala(metin = paylasimMetni(durum.dosya, durum.ozet), mesaj = 'Sonuç kopyalandı') {
   try {
     await navigator.clipboard.writeText(metin);
   } catch {
+    const odak = document.activeElement;
     const ta = document.createElement('textarea');
     ta.value = metin;
+    ta.className = 'kopya-gecici';
+    ta.setAttribute('aria-label', 'Kopyalanacak metin');
     document.body.appendChild(ta);
     ta.select();
-    document.execCommand('copy');
-    ta.remove();
+    let basarili = false;
+    try { basarili = document.execCommand('copy'); } catch { /* bildir */ }
+    finally { ta.remove(); odak?.focus({ preventScroll: true }); }
+    if (!basarili) return bildir('Metin kopyalanamadı. Panoya erişimi kontrol edip yeniden deneyin.');
   }
-  bildir('Sonuç kopyalandı');
+  bildir(mesaj);
 }
 
 async function paylas() {
@@ -305,14 +318,27 @@ function sonucTiklama(e) {
   const ds = hedef.dataset;
   if (ds.neden) {
     durum.acikNeden = durum.acikNeden === ds.neden ? null : ds.neden;
-    return sonucuCiz();
+    sonucuCiz();
+    $('sonuc').querySelector(`[data-neden="${ds.neden}"]`)?.focus({ preventScroll: true });
+    return;
   }
   if (ds.senaryo) {
     const kendi = gosterilenSenaryo(durum.dosya);
     durum.gorunen = ds.senaryo === kendi || ds.senaryo === durum.gorunen ? null : ds.senaryo;
     durum.acikNeden = null;
-    return sonucuCiz();
+    sonucuCiz();
+    $('sonuc').querySelector(`[data-senaryo="${ds.senaryo}"]`)?.focus({ preventScroll: true });
+    return;
   }
+  if (ds.gerekceAc) {
+    const detay = document.getElementById(`gerekce-${ds.gerekceAc}`);
+    if (!detay) return;
+    detay.open = true;
+    detay.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    detay.querySelector('summary').focus({ preventScroll: true });
+    return;
+  }
+  if (ds.eylem === 'gerekce-kopyala') return kopyala(gerekceMetni(durum.ozet), 'Gerekçeli metin kopyalandı');
   if (ds.eylem === 'kopyala') return kopyala();
   if (ds.eylem === 'paylas') return paylas();
 }
@@ -321,6 +347,7 @@ function sekmeAc(ad) {
   for (const s of document.querySelectorAll('.sekmeler [role="tab"]')) {
     const aktif = s.id === `sekme-${ad}`;
     s.setAttribute('aria-selected', String(aktif));
+    s.tabIndex = aktif ? 0 : -1;
     $(s.getAttribute('aria-controls')).classList.toggle('gizli', !aktif);
   }
   if (ad === 'mevzuat') {
@@ -364,7 +391,7 @@ function olaylariBagla() {
     if (v && !T.gecerliTarih(v)) return;
     if (v) durum.dosya.muddetname[id] = v;
     else delete durum.dosya.muddetname[id];
-    depo.yaz(DOSYA_ANAHTARI, durum.dosya);
+    depo.yaz(DOSYA_ANAHTARI, durum.dosya).catch(() => bildir('Müddetname karşılaştırması kaydedilemedi.'));
     $('mdTablo').innerHTML = muddetnameTablosu(muddetnameKarsilastir(durum.ozet, durum.dosya.muddetname));
   });
   $('cevaplar').addEventListener('click', (e) => {
@@ -381,6 +408,16 @@ function olaylariBagla() {
     const s = e.target.closest('[role="tab"]');
     if (s) sekmeAc(s.id.replace('sekme-', ''));
   });
+  document.querySelector('.sekmeler').addEventListener('keydown', (e) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    const sekmeler = [...document.querySelectorAll('.sekmeler [role="tab"]')];
+    const i = sekmeler.indexOf(e.target);
+    if (i < 0) return;
+    e.preventDefault();
+    const yeni = e.key === 'Home' ? 0 : e.key === 'End' ? sekmeler.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + sekmeler.length) % sekmeler.length;
+    sekmeler[yeni].click();
+    sekmeler[yeni].focus();
+  });
   // Madde ve kural bağlantıları (sonuç, mevzuat ve süreler ekranlarında)
   document.addEventListener('click', (e) => {
     const madde = e.target.closest('button[data-madde]');
@@ -396,7 +433,12 @@ function olaylariBagla() {
     }
   });
   $('yeniHesap').addEventListener('click', yeniHesap);
-  $('tamEkran').addEventListener('click', () => sayfaAc('tam=1'));
+  $('tamEkran').addEventListener('click', async () => {
+    try {
+      await depo.yaz(DOSYA_ANAHTARI, durum.dosya);
+      sayfaAc('tam=1');
+    } catch { bildir('Son cevap kaydedilemedi; tam sayfa açılmadı.'); }
+  });
   $('mevzuatSec').addEventListener('change', aramaYap);
   let aramaZamanlayici;
   $('mevzuatAra').addEventListener('input', () => {
@@ -407,22 +449,33 @@ function olaylariBagla() {
 }
 
 async function baslat() {
-  // Açılır pencerede değil de sekmede/telefonda açıldıysa "Tam sayfa" gereksizdir.
-  if (tamSayfa || innerWidth > 560) $('tamEkran').classList.add('gizli');
+  // Lemur geniş bir açılır pencere açabilir; genişlik sekmede olduğumuzu kanıtlamaz.
+  if (tamSayfa) $('tamEkran').classList.add('gizli');
   document.body.classList.toggle('tam', tamSayfa || innerWidth > 560);
   try {
     durum.kt = new KuralTabani(await veriYukle('paket.json'));
   } catch (hata) {
-    $('paketBilgi').textContent = `Kural tabanı yüklenemedi (${hata.message}). npm run veri ile yeniden derleyin.`;
-    return;
+    return baslatmaHatasi('Kural tabanı yüklenemedi. Eklenti dosyalarının eksiksiz olduğundan emin olup yeniden deneyin.');
   }
   const k = durum.kt;
   $('paketBilgi').textContent = `Kural tabanı ${k.surum} · ${k.mevzuatListesi.length} tam metin · hesap cihazda yapılır`;
   $('paketBilgi').title = `Kaynak SHA-256: ${k.sha256}`;
   mevzuatKur(k, new MevzuatDeposu(k, veriYukle));
-  durum.dosya = dosyaYukle(await depo.oku(DOSYA_ANAHTARI));
+  try {
+    durum.dosya = dosyaYukle(await depo.oku(DOSYA_ANAHTARI));
+  } catch {
+    return baslatmaHatasi('Kayıtlı dosya okunamadı. Verilerin üzerine yazılmaması için hesap başlatılmadı. Yeniden deneyin.');
+  }
   olaylariBagla();
   yenile({ kaydet: false });
+  document.body.classList.add('hazir');
+}
+
+function baslatmaHatasi(mesaj) {
+  $('soruKarti').innerHTML = '<h2>Çalışma alanı açılamadı</h2><p class="uyari" role="alert"></p><button type="button" class="dugme ana" id="yenidenDene">Yeniden dene</button>';
+  $('soruKarti').querySelector('.uyari').textContent = mesaj;
+  $('paketBilgi').textContent = mesaj;
+  $('yenidenDene').addEventListener('click', () => location.reload());
   document.body.classList.add('hazir');
 }
 

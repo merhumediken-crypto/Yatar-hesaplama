@@ -2,11 +2,10 @@
   "manifest_version": 3,
   "name": "Yatar Hesabı · İnfaz ve Tekerrür",
   "short_name": "Yatar Hesabı",
-  "version": "0.5.0",
+  "version": "0.6.1",
   "description": "Suç tarihi ve cezadan kapalı, açık ve denetimli serbestlik sürelerini ve tahliye takvimini adım adım hesaplar.",
   "action": {
-    "default_title": "Yatar Hesabı",
-    "default_popup": "popup.html",
+    "default_title": "Yatar Hesabı · Tam sayfada aç",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -19,9 +18,14 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "minimum_chrome_version": "105",
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "background": {
+    "service_worker": "acilis.js"
   }
 }

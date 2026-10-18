@@ -48,6 +48,7 @@ export function agirlikliTarih(E, hedef, dogum, agirlik) {
     toplam += agirlik(yasHesapla(dogum, gunEkle(E, d)));
     d++;
   }
+  if (toplam < hedef) throw new RangeError('Ağırlıklı gün hesabı desteklenen süre sınırını aşıyor.');
   return gunEkle(E, d);
 }
 

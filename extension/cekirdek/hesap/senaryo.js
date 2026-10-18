@@ -72,7 +72,7 @@ function dugumKaydi(S, sonuc, { ihtiyatEtkili = true } = {}) {
   if (ihtiyatEtkili && sonuc.ihtiyatli) S.en_cok = true;
 }
 
-export function senaryoHesapla(kt, motor, ortam, derece) {
+function senaryoHesaplaIc(kt, motor, ortam, derece) {
   const S = new SenaryoKaydi(derece);
   const { ilam, vaka, E, profil } = ortam;
 
@@ -331,9 +331,16 @@ function paraHapis(S, kt, motor, ortam, baglam, kd, bihakkin) {
 }
 
 function takvimiKur(S, ortam, { ksTarihi, cikis, bihakkin, dsTarihi = null, dsYok = false, dogrudanAcik = false }) {
+  // Mahsupla daha önce tamamlanan eşikler bu giriş için geçmiş bir fizikî çıkış
+  // oluşturmaz. Faz 3'ün sıfır kalan gün davranışını çekirdek/ekran arasında tutarlı tut.
+  const ksSure = ksTarihi ? gunFarki(ortam.E, ksTarihi) : null;
+  const tabanaCek = (tarih) => tarih && once(tarih, ortam.baslama) ? ortam.baslama : tarih;
+  cikis = tabanaCek(cikis);
+  ksTarihi = tabanaCek(ksTarihi);
+  dsTarihi = tabanaCek(dsTarihi);
+  bihakkin = tabanaCek(bihakkin);
   S.kurumda_kalis_gun = cikis ? Math.max(0, gunFarki(ortam.baslama, cikis)) : null;
   S.toplam_infaz_gun = cikis ? Math.max(0, gunFarki(ortam.E, cikis)) : null;
-  const ksSure = ksTarihi ? gunFarki(ortam.E, ksTarihi) : null;
   S.takvim = {
     infaza_baslama: ortam.baslama,
     etkin_baslangic: ortam.E,
@@ -368,6 +375,19 @@ function belirsizKosullar(belgeli, sonuclar) {
     .flatMap((d) => d.belirsiz_alanlar)
     .filter((a) => !TURETILEN_ALAN.test(a));
   return [...new Set(alanlar)];
+}
+
+export function senaryoHesapla(kt, motor, ortam, derece) {
+  try {
+    return senaryoHesaplaIc(kt, motor, ortam, derece);
+  } catch (hata) {
+    if (!(hata instanceof RangeError)) throw hata;
+    const S = new SenaryoKaydi(derece);
+    S.hesaplanamadi = true;
+    S.neden = 'Girilen süre hesaplanabilir sınırı aşıyor; kesilmiş veya yaklaşık bir çıkış tarihi üretilmedi.';
+    S.notlar.ekle('inceleme', 'E006', S.neden, ['R003']);
+    return bitir(S);
+  }
 }
 
 export { durumBelirle };

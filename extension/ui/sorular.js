@@ -41,6 +41,10 @@ export const TEMEL_SORULAR = [
     gorunur: () => true,
     cevaplandi: (d) => !!d.konum,
     ata: (d, v) => {
+      if (v === 'cezaevinde' && d.konum !== v && d.giris?.tur !== 'tarih') {
+        d.giris = null;
+        bilinmiyorYap(d, 'giris', false);
+      }
       d.konum = v;
     },
     ozet: (d) => ({ cezaevinde: 'Cezaevinde', girmedi: 'Henüz girmedi', varsayimsal: 'Varsayımsal hesap' })[d.konum],
@@ -166,9 +170,10 @@ export const EK_SORULAR = [
     // 220/314'te fıkra kurma ile üyeliği ayırır; karar alanı fıkra olmasa da sorulur.
     zorunlu: (d) => d.suc?.kanun === 5237 && ORGUT_MADDELERI.has(d.suc.madde) && !d.suc.fikra,
     gorunur: (d) => !!d.suc?.madde,
-    cevaplandi: (d) => !!d.suc?.fikra || bilinmiyorMu(d, 'fikra'),
+    cevaplandi: (d) => (!!d.suc?.fikra && !!d.suc?.bent) || d.ek.fikra_cevaplandi === true || bilinmiyorMu(d, 'fikra'),
     ata: (d, v) => {
       d.suc = { ...d.suc, fikra: v.fikra || null, bent: v.bent || null };
+      d.ek.fikra_cevaplandi = true;
     },
     ozet: (d) => (d.suc?.fikra ? `Fıkra ${d.suc.fikra}${d.suc.bent ? '-' + d.suc.bent : ''}` : 'Fıkra bilinmiyor'),
   },
@@ -186,6 +191,10 @@ export const EK_SORULAR = [
     gorunur: () => true,
     cevaplandi: (d) => !!d.ek.yas || bilinmiyorMu(d, 'yas'),
     ata: (d, v) => {
+      if (d.ek.yas !== v) {
+        delete d.ek.dogum_tarihi;
+        bilinmiyorYap(d, 'dogum_tarihi', false);
+      }
       d.ek.yas = v;
       if (v === 'yetiskin') delete d.ek.dogum_tarihi;
     },
@@ -334,6 +343,16 @@ export function bilinmiyorCevabi(d, id) {
 
 // Gerçek cevap: soru bilinmiyor listesinden çıkar.
 export function cevapla(d, s, deger) {
+  if (s.id === 'suc') {
+    delete d.ek.fikra_cevaplandi;
+    if (d.suc && (d.suc.kanun !== deger.kanun || d.suc.madde !== deger.madde)) {
+      for (const id of ['magdur_yakinlik', 'magdur_savunmasiz', 'deprem', 'mit_2937']) {
+        delete d.ek[id];
+        bilinmiyorYap(d, id, false);
+      }
+      d.ozel = { teror: null, orgut: null, taksir: null };
+    }
+  }
   s.ata(d, deger);
   bilinmiyorYap(d, s.id, false);
   if (s.id === 'suc') bilinmiyorYap(d, 'fikra', false);
@@ -379,6 +398,8 @@ export function sonrakiSoru(kt, d, bugun, cikti) {
   if (kapsamDisi(d)) return null;
   for (const s of TEMEL_SORULAR) if (s.gorunur(d) && !s.cevaplandi(d)) return s;
   if (!hesaplanabilir(d) || !cikti) return null;
+  const dogrudan = EK_SORULAR.find((s) => s.dogrudan && s.gorunur(d) && !s.cevaplandi(d));
+  if (dogrudan) return dogrudan;
   const S = cikti.senaryolar?.[gosterilenSenaryo(d)];
   if (!S?.takvim) return null;
   for (const s of EK_SORULAR) {

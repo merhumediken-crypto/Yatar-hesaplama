@@ -10,8 +10,8 @@ function ebob(a, b) {
 
 export class Kesir {
   constructor(pay, payda = 1) {
-    if (!Number.isInteger(pay) || !Number.isInteger(payda) || payda === 0) {
-      throw new Error(`Geçersiz kesir: ${pay}/${payda}`);
+    if (!Number.isSafeInteger(pay) || !Number.isSafeInteger(payda) || payda === 0) {
+      throw new RangeError(`Geçersiz veya güvenli tamsayı sınırını aşan kesir: ${pay}/${payda}`);
     }
     if (payda < 0) {
       pay = -pay;
@@ -50,7 +50,8 @@ export class Kesir {
 
   karsilastir(x) {
     const k = Kesir.from(x);
-    return Math.sign(this.pay * k.payda - k.pay * this.payda);
+    const fark = BigInt(this.pay) * BigInt(k.payda) - BigInt(k.pay) * BigInt(this.payda);
+    return fark < 0n ? -1 : fark > 0n ? 1 : 0;
   }
 
   esit(x) {

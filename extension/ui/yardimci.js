@@ -25,25 +25,34 @@ export function cip(sinif, metin, { baslik = '', veri = null } = {}) {
 }
 
 const chromeApi = globalThis.chrome;
+let yazmaSirasi = Promise.resolve();
 
 export const depo = {
   async oku(anahtar) {
-    try {
-      if (chromeApi?.storage?.local) return (await chromeApi.storage.local.get(anahtar))[anahtar] ?? null;
-    } catch {}
+    // Eklenti deposunun okunamaması boş dosya anlamına gelmez. Eski bir yerel
+    // kayda dönüp sonraki cevapta asıl dosyanın üzerine yazılmasını önle.
+    if (chromeApi?.storage?.local) {
+      const sonuc = await chromeApi.storage.local.get(anahtar);
+      return sonuc[anahtar] ?? null;
+    }
     try {
       return JSON.parse(localStorage.getItem(anahtar) || 'null');
     } catch {
       return null;
     }
   },
-  async yaz(anahtar, deger) {
-    try {
-      if (chromeApi?.storage?.local) return await chromeApi.storage.local.set({ [anahtar]: deger });
-    } catch {}
-    try {
-      localStorage.setItem(anahtar, JSON.stringify(deger));
-    } catch {}
+  yaz(anahtar, deger) {
+    const kayit = structuredClone(deger);
+    const yazma = async () => {
+      if (chromeApi?.storage?.local) {
+        // Chrome deposu varsa hatayı yerel depoya gizlice taşımak, sonraki açılışta
+        // eski Chrome kaydının geri gelmesine yol açar. Hata çağırana bildirilir.
+        await chromeApi.storage.local.set({ [anahtar]: kayit });
+      } else localStorage.setItem(anahtar, JSON.stringify(kayit));
+    };
+    const sonuc = yazmaSirasi.catch(() => {}).then(yazma);
+    yazmaSirasi = sonuc;
+    return sonuc;
   },
 };
 

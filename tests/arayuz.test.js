@@ -138,7 +138,7 @@ test('sonuç özeti: doğrudan açık, mahsup, 2005 öncesi ve boş dosya', () =
   assert.equal(kisa.olaylar[0].baslik, 'Açık cezaevine giriş');
   const mahsuplu = ozet(dosya({ mahsup: [{ tur: 'tutukluluk', gun: 20 }] }));
   assert.equal(mahsuplu.kapali, 10, 'tutuklulukta geçen 20 gün kapalıdaki 1 aydan düşülür');
-  assert.match(mahsuplu.olaylar[0].aciklama, /20 gün düşüldü/);
+  assert.match(mahsuplu.olaylar[0].aciklama, /20 gün mahsup/);
   const eski = dosya({ suc_tarihi: '2004-12-31' });
   assert.ok(kapsamDisi(eski));
   assert.equal(sonucOzeti(kt, eski, null).durum, 'kapsam_disi');
@@ -211,7 +211,7 @@ test('31/07/2023 öncesi suç: geçici 10/6 ile 1 ay kapalı, 3 ay açık, sonra
 
 test('mahsup kayıtları: tarih aralığı, konutu terk etmeme 2:1, kullanılan DS', () => {
   assert.deepEqual(mahsupGunu({ tur: 'tutukluluk', baslangic: '2025-01-01', bitis: '2025-01-31' }), { takvim: 31, dusulen: 31 });
-  assert.deepEqual(mahsupGunu({ tur: 'konutu_terk_etmeme', gun: 45 }), { takvim: 45, dusulen: 22 });
+  assert.deepEqual(mahsupGunu({ tur: 'konutu_terk_etmeme', gun: 45 }), { takvim: 45, dusulen: 22.5 }); // toplamda aşağı yuvarlanır
   // 31 gün tutukluluk + 2 gün gözaltı: kapalıdaki 1 ay tamamen mahsupla karşılanır
   const d = dosya({ mahsup: [{ tur: 'gozalti', gun: 2 }, { tur: 'tutukluluk', baslangic: '2025-01-01', bitis: '2025-01-31' }] });
   const o = ozet(d);
@@ -229,8 +229,7 @@ test('mahsup kayıtları: tarih aralığı, konutu terk etmeme 2:1, kullanılan 
   // Mahsup çıkış şartını girişten önce karşılarsa çıkış giriş günü gösterilir
   const fazla = ozet(dosya({ suc_tarihi: '2023-01-01', mahsup: [{ tur: 'tutukluluk', gun: 200 }] }));
   const cikis = fazla.olaylar.find((e) => e.tur === 'cikis');
-  assert.equal(cikis.tarih, '2026-01-01');
-  assert.ok(cikis.onceden);
+  assert.equal(cikis.tarih, '2026-01-01'); // çekirdek geçmişte kalan eşiği girişe çeker (0.6.1)
   assert.equal(fazla.icerde, 0);
   assert.equal(fazla.ds, T.gunFarki('2026-01-01', hesap(dosya({ suc_tarihi: '2023-01-01', mahsup: [{ tur: 'tutukluluk', gun: 200 }] })).senaryolar.yok.takvim.kosullu_saliverilme));
   assert.equal(fazla.karsilastirma[0].cikis, '2026-01-01');

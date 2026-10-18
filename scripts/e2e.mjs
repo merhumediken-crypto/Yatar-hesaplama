@@ -48,6 +48,13 @@ try {
 
   const soru = () => page.locator('#soruKarti h2').innerText();
   const devam = () => page.click('[data-eylem="devam"]');
+  // Bir süre kartının kısa nedeni + bağlandığı gerekçe adımının metni (0.6.1 gerekçe ekranı).
+  const gerekce = async (tur) => {
+    await page.click(`[data-neden="${tur}"]`);
+    await page.click('.neden-kutu .gerekceye-git');
+    const adim = page.locator('details.gerekce-adim[open]').first();
+    return { adim, metin: `${await page.locator('.neden-kutu').innerText()}\n${await adim.innerText()}` };
+  };
   const sayilar = async () => (await page.locator('.sayi-kutu .deger').allInnerTexts()).map((s) => s.replace(/\D/g, ''));
 
   // 1) Telefonda adım adım: 3 yıl 1 ay 15 gün · nitelikli hırsızlık · 01.07.2025
@@ -88,9 +95,9 @@ try {
   await goruntu(page, '2-telefon-sonuc');
 
   // 2) Neden ve madde metni
-  await page.click('[data-neden="kapali"]');
-  assert.match(await page.locator('.neden-kutu').innerText(), /Yönetmelik m\.6\/1-a/);
-  await page.click('.neden-kutu .madde-bag');
+  const kapaliNeden = await gerekce('kapali');
+  assert.match(kapaliNeden.metin, /Yönetmelik m\.6\/1-a/);
+  await kapaliNeden.adim.locator('.madde-bag[data-madde="U04:govde:6"]').first().click();
   await page.waitForSelector('#goruntuleyici .madde-metni');
   assert.match(await page.locator('#goruntuleyici').innerText(), /Açık Ceza İnfaz Kurumlarına Ayrılma/);
   await goruntu(page, '3-telefon-mevzuat');
@@ -156,8 +163,7 @@ try {
   const g10 = await page.locator('.sonuc-kart').innerText();
   assert.match(g10, /geçici 10\/6/);
   assert.match(g10, /talep etmezse:.*25\.07\.2027/);
-  await page.click('[data-neden="ds"]');
-  assert.match(await page.locator('.neden-kutu').innerText(), /Geçici 10\/6/);
+  assert.match((await gerekce('ds')).metin, /Geçici 10\/6/);
   await goruntu(page, '2b-telefon-gecici10');
 
   // 6c) Müddetname: tarih aralıklı tutukluluk + kullanılan DS, sonra karşılaştırma
@@ -177,8 +183,7 @@ try {
   await goruntu(page, '2c-telefon-mahsup');
   await devam();
   assert.match(await page.locator('#cevaplar').innerText(), /Mahsup 93 gün · DS dahil/);
-  await page.click('[data-neden="kapali"]');
-  assert.match(await page.locator('.neden-kutu').innerText(), /Denetimli serbestlikten geri gönderilen/);
+  assert.match((await gerekce('kapali')).metin, /Denetimli serbestlikten geri gönderilen/);
   await page.click('.muddetname summary');
   await page.fill('[data-md="ks"]', '2030-01-01');
   assert.match(await page.locator('#mdTablo').innerText(), /01\.01\.2030/);

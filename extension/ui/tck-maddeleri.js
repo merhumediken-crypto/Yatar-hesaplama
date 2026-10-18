@@ -98,7 +98,8 @@ export function sucAra(sorgu, sinir = 8) {
 export function maddeCoz(metin) {
   const m = /^\s*(\d+(?:\/[a-zA-Z])?)\s*(?:\/\s*(\d+))?\s*(?:[-.]?\s*([a-zçğıöşü]))?\s*$/i.exec(String(metin ?? ''));
   if (!m) return null;
-  return { madde: m[1].toUpperCase(), fikra: m[2] || null, bent: m[3] ? m[3].toLowerCase() : null };
+  if (/^0+(?:\/|$)/.test(m[1]) || (m[2] && !/^[1-9]\d*$/.test(m[2]))) return null;
+  return { madde: m[1].replace(/^0+(?=\d)/, '').toUpperCase(), fikra: m[2] || null, bent: m[3] ? m[3].toLowerCase() : null };
 }
 
 export function sucAdi(suc) {

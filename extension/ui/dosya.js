@@ -7,6 +7,8 @@
 // alan null kalır: çekirdek olağan dosya varsayımını ya da hükümlü aleyhine ihtiyat
 // çözümünü uygular, sonuç ekranı bunu tek satırla bildirir.
 
+import { takvim as T } from '../cekirdek/index.js';
+
 export const DOSYA_SURUMU = 3;
 
 // 5237 sayılı TCK ve 5275 sayılı Kanun'un yürürlüğü. Öncesindeki suçlar lehe kanun
@@ -46,13 +48,29 @@ export function bosDosya() {
 // Kayıtlı (veya eski sürüm) dosyayı güvenle yükler; bilinmeyen alanlar atılır.
 export function dosyaYukle(kayit) {
   const d = bosDosya();
-  if (!kayit || kayit.surum !== DOSYA_SURUMU) return d;
-  for (const k of Object.keys(d)) if (k in kayit && k !== 'surum') d[k] = kayit[k];
-  d.ozel = { ...bosDosya().ozel, ...(kayit.ozel || {}) };
-  d.ek = { ...(kayit.ek || {}) };
-  d.muddetname = { ...(kayit.muddetname || {}) };
+  if (!kayit || typeof kayit !== 'object' || kayit.surum !== DOSYA_SURUMU) return d;
+  if (['cezaevinde', 'girmedi', 'varsayimsal'].includes(kayit.konum)) d.konum = kayit.konum;
+  if (T.gecerliTarih(kayit.suc_tarihi)) d.suc_tarihi = kayit.suc_tarihi;
+  if ([...SURELI_TURLER, 'muebbet', 'agirlastirilmis_muebbet'].includes(kayit.ceza_turu)) d.ceza_turu = kayit.ceza_turu;
+  if (cezaVar(kayit.ceza)) d.ceza = { yil: kayit.ceza.yil || 0, ay: kayit.ceza.ay || 0, gun: kayit.ceza.gun || 0 };
+  if (cezaVar(kayit.esas_ceza)) d.esas_ceza = { yil: kayit.esas_ceza.yil || 0, ay: kayit.esas_ceza.ay || 0, gun: kayit.esas_ceza.gun || 0 };
+  const s = kayit.suc;
+  if (s && Number.isSafeInteger(s.kanun) && s.kanun > 0 && typeof s.madde === 'string' && /^\d+(?:\/[A-Z])?$/.test(s.madde)) {
+    d.suc = { kanun: s.kanun, madde: s.madde.replace(/^0+(?=\d)/, ''), fikra: typeof s.fikra === 'string' && /^\d+$/.test(s.fikra) ? s.fikra : null, bent: typeof s.bent === 'string' && /^[a-zçğıöşü]$/i.test(s.bent) ? s.bent.toLocaleLowerCase('tr') : null };
+  }
+  for (const k of Object.keys(d.ozel)) if (typeof kayit.ozel?.[k] === 'boolean') d.ozel[k] = kayit.ozel[k];
+  if (['yok', 'birinci', 'ikinci'].includes(kayit.tekerrur)) d.tekerrur = kayit.tekerrur;
+  if (kayit.giris?.tur === 'tarih' && T.gecerliTarih(kayit.giris.tarih)) d.giris = { tur: 'tarih', tarih: kayit.giris.tarih };
+  else if (kayit.giris?.tur === 'bugun' && d.konum !== 'cezaevinde') d.giris = { tur: 'bugun' };
   d.mahsup = mahsupYukle(kayit.mahsup);
-  d.bilinmiyor = Array.isArray(kayit.bilinmiyor) ? [...kayit.bilinmiyor] : [];
+  for (const id of ['acik', 'cikis', 'ks', 'bitis']) if (T.gecerliTarih(kayit.muddetname?.[id])) d.muddetname[id] = kayit.muddetname[id];
+  const ek = kayit.ek || {};
+  if (['yetiskin', 'cocuk', 'yasli'].includes(ek.yas)) d.ek.yas = ek.yas;
+  if (T.gecerliTarih(ek.dogum_tarihi)) d.ek.dogum_tarihi = ek.dogum_tarihi;
+  for (const k of ['kadin_cocuk', 'rapor', 'magdur_savunmasiz', 'deprem', 'mit_2937', 'fikra_cevaplandi']) if (typeof ek[k] === 'boolean') d.ek[k] = ek[k];
+  if (['es', 'ustsoy', 'altsoy', 'kardes', 'diger'].includes(ek.magdur_yakinlik)) d.ek.magdur_yakinlik = ek.magdur_yakinlik;
+  const ids = new Set(['suc', 'tekerrur', 'esas_ceza', 'giris', 'mahsup', 'fikra', 'yas', 'dogum_tarihi', 'kadin_cocuk', 'rapor', 'magdur_yakinlik', 'magdur_savunmasiz', 'deprem', 'mit_2937']);
+  d.bilinmiyor = Array.isArray(kayit.bilinmiyor) ? [...new Set(kayit.bilinmiyor.filter((id) => ids.has(id)))] : [];
   return d;
 }
 
@@ -69,20 +87,29 @@ export const MAHSUP_TURLERI = [
 // Faz 1 biçimi { gozalti, tutukluluk } kayıt listesine çevrilir.
 export function mahsupYukle(m) {
   if (m === null || m === undefined) return null;
-  if (Array.isArray(m)) return m.filter((k) => k && MAHSUP_TURLERI.some(([t]) => t === k.tur)).map((k) => ({ ...k }));
-  const liste = [];
-  if (m.gozalti > 0) liste.push({ tur: 'gozalti', gun: m.gozalti });
-  if (m.tutukluluk > 0) liste.push({ tur: 'tutukluluk', gun: m.tutukluluk });
-  return liste;
+  if (!Array.isArray(m)) {
+    if (typeof m !== 'object' || !['gozalti', 'tutukluluk'].some((k) => Object.hasOwn(m, k))) return null;
+    if (!['gozalti', 'tutukluluk'].every((k) => m[k] == null || (Number.isSafeInteger(m[k]) && m[k] >= 0))) return null;
+    return ['gozalti', 'tutukluluk'].filter((k) => m[k] > 0).map((k) => ({ tur: k, gun: m[k] }));
+  }
+  const sonuc = [];
+  for (const k of m) {
+    if (!k || !MAHSUP_TURLERI.some(([t]) => t === k.tur)) return null;
+    if (Number.isSafeInteger(k.gun) && k.gun > 0) sonuc.push({ tur: k.tur, gun: k.gun });
+    else if (k.gun != null && k.gun !== 0) return null;
+    else if (T.gecerliTarih(k.baslangic) && T.gecerliTarih(k.bitis) && k.bitis >= k.baslangic) sonuc.push({ tur: k.tur, baslangic: k.baslangic, bitis: k.bitis });
+    else if (k.gun !== 0 || k.baslangic || k.bitis) return null;
+  }
+  return sonuc;
 }
 
 // Kaydın takvim günü (aralıkta başlangıç ve bitiş dahil) ve cezadan düşülen gün.
 export function mahsupGunu(k) {
   const takvimGunu = k.gun > 0 ? k.gun : k.baslangic && k.bitis && k.bitis >= k.baslangic ? gunSay(k.baslangic, k.bitis) + 1 : 0;
-  return { takvim: takvimGunu, dusulen: k.tur === 'konutu_terk_etmeme' ? Math.floor(takvimGunu / 2) : takvimGunu };
+  return { takvim: takvimGunu, dusulen: k.tur === 'konutu_terk_etmeme' ? takvimGunu / 2 : takvimGunu };
 }
 const gunSay = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-export const mahsupToplami = (liste) => (mahsupYukle(liste) || []).reduce((t, k) => t + mahsupGunu(k).dusulen, 0);
+export const mahsupToplami = (liste) => Math.floor((mahsupYukle(liste) || []).reduce((t, k) => t + mahsupGunu(k).dusulen, 0));
 
 export const bilinmiyorMu = (d, id) => d.bilinmiyor.includes(id);
 
@@ -93,7 +120,7 @@ export function bilinmiyorYap(d, id, evet = true) {
 
 export const kapsamDisi = (d) => !!d.suc_tarihi && d.suc_tarihi < KAPSAM_BASLANGICI;
 
-export const cezaVar = (c) => !!c && (c.yil > 0 || c.ay > 0 || c.gun > 0);
+export const cezaVar = (c) => !!c && typeof c === 'object' && !Array.isArray(c) && ['yil', 'ay', 'gun'].every((k) => c[k] == null || (Number.isSafeInteger(c[k]) && c[k] >= 0)) && (c.yil > 0 || c.ay > 0 || c.gun > 0);
 
 export function hesaplanabilir(d) {
   if (!d.suc_tarihi || kapsamDisi(d)) return false;
