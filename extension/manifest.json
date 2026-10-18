@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Yatar Hesabı · İnfaz ve Tekerrür",
   "short_name": "Yatar Hesabı",
-  "version": "0.6.1",
-  "description": "Suç tarihi ve cezadan kapalı, açık ve denetimli serbestlik sürelerini ve tahliye takvimini adım adım hesaplar.",
+  "version": "0.7.0",
+  "description": "Kapalı, açık ve denetimli serbestlik sürelerini ve tahliye takvimini hesaplar; içtima kararı ve müddetnameyi okur.",
   "action": {
     "default_title": "Yatar Hesabı · Tam sayfada aç",
     "default_icon": {

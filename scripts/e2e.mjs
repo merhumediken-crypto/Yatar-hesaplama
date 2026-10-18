@@ -10,6 +10,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { KuralTabani, hesapla, takvim as T } from '../extension/cekirdek/index.js';
+import { dosyaYukle, vakaKur } from '../extension/ui/dosya.js';
+import { sonucOzeti } from '../extension/ui/ozet.js';
+import { udf } from '../tests/zip.js';
 
 const KOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EKLENTI = path.join(KOK, 'extension');
@@ -218,6 +222,120 @@ try {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.setViewportSize(TELEFON);
   await goruntu(page, '5-telefon-karanlik');
+
+  // 10) Belgeden okuma: içtima kararı (yapıştırma) + müddetname (.udf) → 6 ilam; her ilam için
+  //     eksik bilgiler sırayla sorulur; sonuç cezaların toplanmasıyla hesaplanır.
+  const belgeMetni = (ad) => fs.readFileSync(path.join(KOK, 'tests/belgeler', ad), 'utf8');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.click('#yeniHesap');
+  await page.click('#yeniHesap');
+  await page.click('[data-belge="ac"]');
+  await page.fill('#belgeMetni', belgeMetni('ictima-karari.txt'));
+  await page.click('[data-belge="oku"]');
+  await page.waitForSelector('.belge-onizleme');
+  assert.equal(await page.locator('.belge-ilamlar > li').count(), 6);
+  assert.match(await page.locator('.belge-toplam').innerText(), /11 yıl 25 ay 37 gün/);
+  assert.ok((await page.evaluate(() => document.documentElement.scrollWidth)) <= TELEFON.width, 'önizlemede yatay taşma yok');
+  await goruntu(page, '6-telefon-belge-onizleme');
+  await page.click('[data-belge="birlestir"]');
+  await page.waitForSelector('#belgeKarti >> text=Belgeden aktarıldı');
+  assert.equal(await page.locator('.ilam-grup').count(), 6);
+  await page.click('[data-belge="baska"]');
+  await page.setInputFiles('#belgeDosyasi', { name: 'muddetname.udf', mimeType: 'application/octet-stream', buffer: udf(belgeMetni('muddetname.txt')) });
+  await page.waitForSelector('.belge-onizleme');
+  assert.match(await page.locator('.belge-onizleme').innerText(), /Müddetname/);
+  await page.click('[data-belge="birlestir"]');
+  const aktarilan = await page.locator('#belgeKarti').innerText();
+  assert.match(aktarilan, /suç tarihi 03\.02\.2024/);
+  assert.match(aktarilan, /Tutukluluk 04\.02\.2024 – 20\.03\.2024/);
+  assert.match(aktarilan, /Cezaevine giriş 05\.08\.2025/);
+  assert.match(aktarilan, /karşılaştırma tablosuna aktarılmadı/, 'tek ilamın müddetnamesi toplamla karşılaştırılmaz');
+  await goruntu(page, '6b-telefon-belge-aktarildi');
+  await page.click('[data-belge="kapat"]');
+  assert.equal(await soru(), 'Suç tarihi');
+  assert.match(await page.locator('.ilam-baglam').textContent(), /\/ 6Diyarbakır 12\. Asliye Ceza 2017\/157 E\./);
+  await goruntu(page, '6c-telefon-ilam-sorusu');
+  const sucTarihleri = { 1: '2017-01-10', 3: '2014-03-01', 4: '2023-02-01', 6: '2025-02-01' };
+  let hizli = 0;
+  for (let n = 0; n < 80 && !(await page.locator('.soru-karti.bitti').count()); n++) {
+    const baslik = await soru();
+    const no = (await page.locator('.ilam-baglam .ilam-no').count()) ? Number(await page.locator('.ilam-baglam .ilam-no').innerText()) : null;
+    if (baslik === 'Suç tarihi') {
+      if (await page.locator('[data-tarih-hizli]').count()) {
+        hizli++;
+        await page.click('[data-tarih-hizli]');
+      } else {
+        await page.fill('#s_tarih', sucTarihleri[no]);
+        await devam();
+      }
+    } else if (baslik === 'Suç' && no === 1) {
+      await page.fill('#s_ara', 'hırsız');
+      await page.click('[data-suc="5237|142"]');
+    } else if (/Tekerrür/.test(baslik)) await page.click('.secenek:has-text("Yok")');
+    else if (/Gözaltı/.test(baslik)) await page.click('[data-mahsup-yok]');
+    else if (await page.locator('[data-eylem="bilmiyorum"]').count()) await page.click('[data-eylem="bilmiyorum"]');
+    else await page.click('#soruKarti .secenek >> nth=0');
+  }
+  await page.waitForSelector('.soru-karti.bitti');
+  assert.equal(hizli, 1, 'aynı hükmün ikinci ilamında suç tarihi tek dokunuşla önerilir');
+  // Ekrandaki sonuç = kayıtlı dosyanın Node'daki modeli
+  const modelOzeti = async () => {
+    const kayit = await page.evaluate(() => chrome.storage.local.get('infaz-dosya-v3'));
+    const d = dosyaYukle(kayit['infaz-dosya-v3']);
+    const kt = new KuralTabani(JSON.parse(fs.readFileSync(path.join(EKLENTI, 'veri/paket.json'), 'utf8')));
+    const bugun = T.bugunIstanbul();
+    return { d, o: sonucOzeti(kt, d, hesapla(kt, vakaKur(d, bugun)), null, hesapla(kt, vakaKur(d, bugun, { dsTalebi: false }))) };
+  };
+  await page.waitForTimeout(200);
+  const { d: kayitli, o: model } = await modelOzeti();
+  assert.equal(kayitli.ilamlar.length, 6);
+  assert.equal(model.durum, 'tamam');
+  assert.deepEqual(await sayilar(), [model.kapali, model.acik, model.ds].map(String));
+  const coklu = await page.locator('#sonuc').textContent();
+  assert.match(coklu, /Toplanan cezalar · 6 ilam/);
+  assert.ok(coklu.includes(T.trTarih(model.tarihler.cikis)));
+  assert.equal(await page.locator('.ilam-dokumu tbody tr').count(), 6);
+  assert.match(await page.locator('.ilam-dokumu tfoot').innerText(), /11 yıl 25 ay 37 gün/);
+  assert.ok((await page.evaluate(() => document.documentElement.scrollWidth)) <= TELEFON.width, 'çok ilamda yatay taşma yok');
+  await goruntu(page, '6d-telefon-toplama-sonuc');
+
+  // Sorular bitince ilam grupları katlanır; her biri tamam işaretiyle tek satır.
+  assert.equal(await page.locator('.ilam-grup[open]').count(), 0);
+  assert.equal(await page.locator('.ilam-durum.tamam').count(), 6);
+
+  // 10b) İlamın cevabını değiştirme: grup açılır; hüküm tarihinden sonraki suç tarihi reddedilir
+  await page.click('[data-ilam-grup="5"] > summary');
+  assert.equal(await page.locator('.ilam-grup[open]').count(), 1);
+  await page.click('[data-duzenle="suc_tarihi"][data-ilam="5"]');
+  assert.equal(await page.locator('.ilam-baglam .ilam-no').innerText(), '6');
+  await page.fill('#s_tarih', '2025-07-01');
+  await devam();
+  assert.match(await page.locator('#soruKarti .uyari').innerText(), /hüküm tarihinden \(18\.06\.2025\) sonra olamaz/);
+  await page.fill('#s_tarih', '2025-03-01');
+  await devam();
+  assert.match(await page.locator('.ilam-grup >> nth=5').innerText(), /Suç 01\.03\.2025/);
+
+  // 10c) Elle ilam ekleme ve iki dokunuşla çıkarma
+  await page.click('[data-ilam-ekle]');
+  assert.equal(await page.locator('.ilam-grup').count(), 7);
+  assert.equal(await soru(), 'Suç tarihi');
+  assert.match(await page.locator('.ilam-baglam').textContent(), /7\. ilam \/ 7Elle eklenen ilam/);
+  const sil = page.locator('[data-ilam-sil="6"]');
+  await sil.click();
+  assert.equal(await page.locator('.ilam-grup').count(), 7, 'ilk dokunuş yalnız onay ister');
+  await sil.click();
+  assert.equal(await page.locator('.ilam-grup').count(), 6);
+  await page.waitForSelector('.soru-karti.bitti');
+
+  // 10d) Kayıt, masaüstü görünümü
+  await page.reload();
+  await page.waitForSelector('body.hazir');
+  assert.equal(await page.locator('.ilam-grup').count(), 6);
+  assert.equal(await page.locator('.ilam-dokumu tbody tr').count(), 6);
+  await page.setViewportSize(MASAUSTU);
+  assert.ok((await page.evaluate(() => document.documentElement.scrollWidth)) <= MASAUSTU.width);
+  await goruntu(page, '7-masaustu-coklu');
+  await page.setViewportSize(TELEFON);
 
   assert.deepEqual(hatalar, []);
   console.log('e2e: tüm akışlar geçti');

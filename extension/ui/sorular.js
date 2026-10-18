@@ -1,12 +1,17 @@
 // Sıralı sorular.
 //
+// Sorular iki kapsamdadır: dosya soruları (konum, giriş, yaş, kişisel durum) bir kez,
+// ilam soruları (suç tarihi, ceza, suç, tekerrür, mahsup, ilama özgü ek sorular) her
+// ilam için ayrı sorulur. Soru tanımları tek bir ilam görünümü üzerinde çalışır
+// (dosya.js → ilamGorunumu); "soru örneği" { s, i, g } = soru, ilam sırası, görünüm.
+//
 // Temel sorular her dosyada sırayla sorulur. Ek sorular yalnız sonucu değiştirdiğinde
 // sorulur: çekirdeğin "belgeli bağlamda belirsiz" dediği alanlar için her cevap
 // seçeneği ayrı hesaplanır, kapalı/açık/çıkış/KS tarihlerinden biri değişiyorsa soru
 // gösterilir. Bu modül DOM bilmez; Node'da test edilir.
 
 import { hesapla, takvim as T } from '../cekirdek/index.js';
-import { mahsupToplami, bilinmiyorMu, bilinmiyorYap, cezaVar, hesaplanabilir, kapsamDisi, klonla, vakaKur, ORGUT_MADDELERI, SURELI_TURLER } from './dosya.js';
+import { mahsupToplami, bilinmiyorMu, bilinmiyorYap, cezaVar, hesaplanabilir, kapsamDisi, klonla, vakaKur, ORGUT_MADDELERI, SURELI_TURLER, ILAM_SORULARI, anaGorunum, cokluMu, ilamAdi, ilamGorunumu, tamDosya } from './dosya.js';
 import { maddeEtiketi, sucAdi } from './tck-maddeleri.js';
 
 const tr = (s) => (s ? T.trTarih(s) : '');
@@ -15,6 +20,7 @@ const evetHayir = [
   { deger: false, etiket: 'Hayır' },
 ];
 const ekCevap = (id) => (d) => d.ek[id] !== undefined && d.ek[id] !== null;
+const enErkenSucTarihi = (x) => tamDosya(x).ilamlar.map((il) => il.suc_tarihi).filter(Boolean).sort()[0];
 
 // Soru alanları:
 //   id, tur ('secim' | 'tarih' | 'ceza' | 'suc' | 'giris' | 'mahsup' | 'fikra')
@@ -53,7 +59,7 @@ export const TEMEL_SORULAR = [
     id: 'suc_tarihi',
     tur: 'tarih',
     baslik: 'Suç tarihi',
-    aciklama: () => 'Hangi infaz kurallarının uygulanacağını suç tarihi belirler.',
+    aciklama: (d) => (d.meta?.karar_tarihi ? `Hüküm tarihi ${tr(d.meta.karar_tarihi)}; suç tarihi bundan önce olmalı. Uygulanacak infaz kurallarını suç tarihi belirler.` : 'Hangi infaz kurallarının uygulanacağını suç tarihi belirler.'),
     gorunur: () => true,
     cevaplandi: (d) => !!d.suc_tarihi,
     ata: (d, v) => {
@@ -189,7 +195,8 @@ export const EK_SORULAR = [
     ],
     bilinmiyor: 'Yaş bilinmiyor: suç tarihinde yetişkin olduğu varsayıldı.',
     gorunur: () => true,
-    cevaplandi: (d) => !!d.ek.yas || bilinmiyorMu(d, 'yas'),
+    // Doğum tarihi biliniyorsa (ör. belgeden okundu) yaş her suç tarihinde ondan hesaplanır.
+    cevaplandi: (d) => !!d.ek.yas || !!d.ek.dogum_tarihi || bilinmiyorMu(d, 'yas'),
     ata: (d, v) => {
       if (d.ek.yas !== v) {
         delete d.ek.dogum_tarihi;
@@ -199,11 +206,11 @@ export const EK_SORULAR = [
       if (v === 'yetiskin') delete d.ek.dogum_tarihi;
     },
     // Sınama için temsilî doğum tarihleri: yetişkin, 15 yaşında çocuk, bugün 71 yaşında.
-    denemeler: (d, bugun) => [null, T.yilEkle(d.suc_tarihi, -15), T.yilEkle(bugun, -71)],
+    denemeler: (d, bugun) => [null, T.yilEkle(enErkenSucTarihi(d), -15), T.yilEkle(bugun, -71)],
     denemeAta: (d, dogum) => {
       d.ek.dogum_tarihi = dogum;
     },
-    ozet: (d) => ({ yetiskin: 'Yetişkin', cocuk: 'Suçta 18 yaş altı', yasli: '65 yaş üstü' })[d.ek.yas] || 'Yaş bilinmiyor',
+    ozet: (d) => ({ yetiskin: 'Yetişkin', cocuk: 'Suçta 18 yaş altı', yasli: '65 yaş üstü' })[d.ek.yas] || (d.ek.dogum_tarihi ? `Doğum ${tr(d.ek.dogum_tarihi)}` : 'Yaş bilinmiyor'),
   },
   {
     id: 'dogum_tarihi',
@@ -361,8 +368,36 @@ export const soru = (id) => TUM_SORULAR.find((s) => s.id === id);
 
 export const metin = (deger, d) => (typeof deger === 'function' ? deger(d) : deger);
 
-// Ekranda büyük gösterilen senaryo: tekerrür cevabı, bilinmiyorsa tekerrürsüz.
-export const gosterilenSenaryo = (d) => d.tekerrur || 'yok';
+// Ekranda büyük gösterilen senaryo: birden çok ilamda toplama; tek ilamda tekerrür cevabı,
+// bilinmiyorsa tekerrürsüz.
+export const gosterilenSenaryo = (x) => (cokluMu(x) ? 'birlesik' : anaGorunum(x).tekerrur || 'yok');
+
+export const ilamSorusuMu = (s) => ILAM_SORULARI.has(s.id);
+export const gorunum = (x, i) => ilamGorunumu(tamDosya(x), i ?? 0);
+
+// Temel soru sırası (soru örnekleri). Tek ilamda Faz 1 sırası korunur; birden çok ilamda
+// önce dosya soruları (konum, giriş), sonra her ilamın soruları sırayla.
+export function temelSira(x) {
+  const d = tamDosya(x);
+  const blok = (i, ids) => ids.map((id) => ({ s: soru(id), i }));
+  if (d.ilamlar.length === 1) return [{ s: soru('konum'), i: null }, ...blok(0, ['suc_tarihi', 'ceza', 'suc', 'tekerrur', 'esas_ceza']), { s: soru('giris'), i: null }, { s: soru('mahsup'), i: 0 }];
+  return [{ s: soru('konum'), i: null }, { s: soru('giris'), i: null }, ...d.ilamlar.flatMap((_, i) => blok(i, ['suc_tarihi', 'ceza', 'suc', 'tekerrur', 'esas_ceza', 'mahsup']))];
+}
+
+// Ek soruların sırası: tanım sırası; ilam soruları her ilam için.
+export function ekSira(x) {
+  const d = tamDosya(x);
+  return EK_SORULAR.flatMap((s) => (ilamSorusuMu(s) ? d.ilamlar.map((_, i) => ({ s, i })) : [{ s, i: null }]));
+}
+
+// Ekranda görünen bütün soru örnekleri: temel sıra + cevaplanmış ek sorular.
+export function gorunenSira(x) {
+  const d = tamDosya(x);
+  const ekler = ekSira(d).filter((o) => o.s.gorunur(gorunum(d, o.i)) && o.s.cevaplandi(gorunum(d, o.i)));
+  return [...temelSira(d).filter((o) => o.s.gorunur(gorunum(d, o.i))), ...ekler];
+}
+
+export const ayniOrnek = (a, b) => !!a && !!b && a.s.id === b.s.id && (a.i ?? null) === (b.i ?? null);
 
 // Bir senaryonun avukat açısından önemli sonuçları; karşılaştırma için.
 export function imza(S) {
@@ -375,11 +410,12 @@ function senaryoSonucu(kt, d, bugun, anahtar) {
   return hesapla(kt, vakaKur(d, bugun)).senaryolar[anahtar];
 }
 
-// Ek sorunun bu dosyada sonucu değiştirip değiştirmediği.
-export function sonucuDegistirir(kt, d, bugun, s, S) {
+// Ek sorunun bu dosyada sonucu değiştirip değiştirmediği. `belirsizler`: ilgili ilamın
+// (toplamada o ilamın) belgeli bağlamda belirsiz kalan karar alanları.
+export function sonucuDegistirir(kt, d, bugun, s, S, belirsizler = S.belirsiz_kosullar) {
   if (s.dogrudan) return true;
   if (s.zorunlu?.(d)) return true;
-  if (s.alanlar && !s.alanlar.some((a) => S.belirsiz_kosullar.includes(a))) return false;
+  if (s.alanlar && !s.alanlar.some((a) => belirsizler.includes(a))) return false;
   if (!s.denemeler) return true;
   const anahtar = gosterilenSenaryo(d);
   const imzalar = new Set(
@@ -392,29 +428,66 @@ export function sonucuDegistirir(kt, d, bugun, s, S) {
   return imzalar.size > 1;
 }
 
-// Sıradaki soru: önce temel sorular, sonra sonucu değiştiren ilk ek soru.
+// Sıradaki soru örneği { s, i, g }: önce temel sorular, sonra sonucu değiştiren ilk ek soru.
 // `cikti` mevcut dosyanın hesap çıktısıdır (yoksa ek soru aranmaz).
-export function sonrakiSoru(kt, d, bugun, cikti) {
+export function sonrakiSoru(kt, x, bugun, cikti) {
+  const d = tamDosya(x);
   if (kapsamDisi(d)) return null;
-  for (const s of TEMEL_SORULAR) if (s.gorunur(d) && !s.cevaplandi(d)) return s;
+  for (const o of temelSira(d)) {
+    const g = gorunum(d, o.i);
+    if (o.s.gorunur(g) && !o.s.cevaplandi(g)) return { ...o, g };
+  }
   if (!hesaplanabilir(d) || !cikti) return null;
-  const dogrudan = EK_SORULAR.find((s) => s.dogrudan && s.gorunur(d) && !s.cevaplandi(d));
+  const ekler = ekSira(d).map((o) => ({ ...o, g: gorunum(d, o.i) })).filter((o) => o.s.gorunur(o.g) && !o.s.cevaplandi(o.g));
+  const dogrudan = ekler.find((o) => o.s.dogrudan);
   if (dogrudan) return dogrudan;
   const S = cikti.senaryolar?.[gosterilenSenaryo(d)];
   if (!S?.takvim) return null;
-  for (const s of EK_SORULAR) {
-    if (!s.gorunur(d) || s.cevaplandi(d)) continue;
-    if (sonucuDegistirir(kt, d, bugun, s, S)) return s;
+  for (const o of ekler) {
+    const belirsizler = o.i !== null && cikti.toplama?.ilamlar?.[o.i] ? cikti.toplama.ilamlar[o.i].belirsiz_kosullar : S.belirsiz_kosullar;
+    if (sonucuDegistirir(kt, o.g, bugun, o.s, S, belirsizler)) return o;
   }
   return null;
 }
 
-// Dosya özetindeki cevaplar (sırayla).
-export function cevaplar(d) {
-  return TUM_SORULAR.filter((s) => s.gorunur(d) && s.cevaplandi(d)).map((s) => ({ id: s.id, metin: s.ozet(d), bilinmiyor: bilinmiyorMu(d, s.id) }));
+// Cevap kutucukları: tek ilamda tek grup; birden çok ilamda dosya grubu + ilam başına grup.
+export function cevapGruplari(x) {
+  const d = tamDosya(x);
+  const satir = (s, i) => {
+    const g = gorunum(d, i);
+    return s.gorunur(g) && s.cevaplandi(g) ? { id: s.id, i, metin: s.ozet(g), bilinmiyor: bilinmiyorMu(g, s.id) } : null;
+  };
+  if (d.ilamlar.length === 1) return [{ i: null, baslik: null, cevaplar: TUM_SORULAR.map((s) => satir(s, ilamSorusuMu(s) ? 0 : null)).filter(Boolean) }];
+  const temel = temelSira(d);
+  return [
+    { i: null, baslik: null, cevaplar: TUM_SORULAR.filter((s) => !ilamSorusuMu(s)).map((s) => satir(s, null)).filter(Boolean) },
+    ...d.ilamlar.map((il, i) => {
+      const g = gorunum(d, i);
+      return {
+        i,
+        // Grup başlığının yanında sıra numarası ayrıca gösterilir.
+        baslik: il.meta?.etiket || 'Elle eklenen ilam',
+        alt: [il.ceza ? T.cezaMetni(il.ceza) : { muebbet: 'Müebbet', agirlastirilmis_muebbet: 'Ağırlaştırılmış müebbet' }[il.ceza_turu] || null, il.meta?.karar_tarihi ? `hüküm ${tr(il.meta.karar_tarihi)}` : null].filter(Boolean).join(' · '),
+        // Bu ilamda cevap bekleyen temel soru sayısı (katlanmış grupta gösterilir).
+        eksik: temel.filter((o) => o.i === i && o.s.gorunur(g) && !o.s.cevaplandi(g)).length,
+        cevaplar: TUM_SORULAR.filter(ilamSorusuMu).map((s) => satir(s, i)).filter(Boolean),
+      };
+    }),
+  ];
 }
 
-// "Bilmiyorum" cevaplarının varsayım satırları.
-export function varsayimSatirlari(d) {
-  return TUM_SORULAR.filter((s) => s.gorunur(d) && bilinmiyorMu(d, s.id) && s.bilinmiyor).map((s) => s.bilinmiyor);
+// Düz liste (tek ilam ve testler için).
+export const cevaplar = (x) => cevapGruplari(x).flatMap((g) => g.cevaplar);
+
+// "Bilmiyorum" cevaplarının varsayım satırları (birden çok ilamda ilam adıyla).
+export function varsayimSatirlari(x) {
+  const d = tamDosya(x);
+  const coklu = d.ilamlar.length > 1;
+  return [...temelSira(d), ...ekSira(d)]
+    .filter((o, n, liste) => liste.findIndex((p) => ayniOrnek(p, o)) === n)
+    .filter((o) => {
+      const g = gorunum(d, o.i);
+      return o.s.bilinmiyor && o.s.gorunur(g) && bilinmiyorMu(g, o.s.id) && (o.i === null || d.ilamlar[o.i].bilinmiyor.includes(o.s.id));
+    })
+    .map((o) => (coklu && o.i !== null ? `${ilamAdi(d, o.i)}: ${o.s.bilinmiyor}` : o.s.bilinmiyor));
 }

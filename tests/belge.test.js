@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import zlib from 'node:zlib';
+import { udf } from './zip.js';
 import { belgeOku, dosyaMetni, BelgeHatasi } from '../extension/cekirdek/index.js';
 import { aramaKopyasi, cezalar, normallestir, tarihler } from '../extension/cekirdek/belge/metin.js';
 
@@ -101,38 +101,10 @@ test('Tanınmayan veya kısa metin', () => {
   assert.equal(belgeOku('Bu bir dilekçedir ve içinde ceza bilgisi yoktur, sadece metin.').tur, 'bilinmiyor');
 });
 
-// En küçük ZIP: tek dosya, deflate (yöntem 8).
-function zip(ad, icerik) {
-  const veri = Buffer.from(icerik, 'utf8');
-  const sikisik = zlib.deflateRawSync(veri);
-  const adB = Buffer.from(ad);
-  const yerel = Buffer.alloc(30);
-  yerel.writeUInt32LE(0x04034b50, 0);
-  yerel.writeUInt16LE(8, 8);
-  yerel.writeUInt32LE(sikisik.length, 18);
-  yerel.writeUInt32LE(veri.length, 22);
-  yerel.writeUInt16LE(adB.length, 26);
-  const merkez = Buffer.alloc(46);
-  merkez.writeUInt32LE(0x02014b50, 0);
-  merkez.writeUInt16LE(8, 10);
-  merkez.writeUInt32LE(sikisik.length, 20);
-  merkez.writeUInt32LE(veri.length, 24);
-  merkez.writeUInt16LE(adB.length, 28);
-  merkez.writeUInt32LE(0, 42);
-  const merkezBas = yerel.length + adB.length + sikisik.length;
-  const son = Buffer.alloc(22);
-  son.writeUInt32LE(0x06054b50, 0);
-  son.writeUInt16LE(1, 8);
-  son.writeUInt16LE(1, 10);
-  son.writeUInt32LE(merkez.length + adB.length, 12);
-  son.writeUInt32LE(merkezBas, 16);
-  return Buffer.concat([yerel, adB, sikisik, merkez, adB, son]);
-}
 const dosya = (ad, veri) => new File([veri], ad);
 
 test('UDF (ZIP içinde content.xml CDATA) dosyası okunur', async () => {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?><template format_id="1.8"><content><![CDATA[${belge('ictima-karari.txt')}]]></content><properties/></template>`;
-  const { metin, bicim } = await dosyaMetni(dosya('karar.udf', zip('content.xml', xml)));
+  const { metin, bicim } = await dosyaMetni(dosya('karar.udf', udf(belge('ictima-karari.txt'))));
   assert.equal(bicim, 'udf');
   const r = belgeOku(metin);
   assert.equal(r.tur, 'ictima_karari');

@@ -1,6 +1,6 @@
 {
   "name": "infaz-tekerrur-hesabi",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Kural tabanına dayalı infaz (yatar) ve tekerrür ön değerlendirme Chrome eklentisi",
   "type": "module",

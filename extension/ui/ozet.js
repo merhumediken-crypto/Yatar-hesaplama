@@ -3,7 +3,7 @@
 // Hukuki karar vermez; yalnız seçili senaryonun takvimini okur. DOM bilmez.
 
 import { takvim as T } from '../cekirdek/index.js';
-import { hesaplanabilir, kapsamDisi, KAPSAM_BASLANGICI } from './dosya.js';
+import { hesaplanabilir, kapsamDisi, KAPSAM_BASLANGICI, anaGorunum, tamDosya } from './dosya.js';
 import { gosterilenSenaryo, varsayimSatirlari } from './sorular.js';
 import { maddeEtiketi, sucAdi } from './tck-maddeleri.js';
 import { gerekceKur } from './gerekce.js';
@@ -12,7 +12,7 @@ const tr = (s) => (s ? T.trTarih(s) : '—');
 const fark = (a, b) => Math.max(0, T.gunFarki(a, b));
 const gec = (a, b) => (T.once(a, b) ? b : a);
 
-const BASLIK = { yok: 'Tekerrürsüz', birinci: '1. tekerrür', ikinci: '2. tekerrür' };
+const BASLIK = { yok: 'Tekerrürsüz', birinci: '1. tekerrür', ikinci: '2. tekerrür', birlesik: 'Toplanan cezalar' };
 
 // Uzun süreler için yaklaşık yıl/ay karşılığı: 400 → "≈ 1 yıl 1 ay 5 gün".
 export function sureYaklasik(gun) {
@@ -64,7 +64,10 @@ function nedenler(kt, S, bol) {
   } else if (S.takvim?.kosullu_saliverilme) {
     n.cikis = { metin: 'Denetimli serbestlik yolu yok; çıkış koşullu salıverilme tarihinde.', madde: maddeBul(kt, 'R040') };
   }
-  if (S.temel_oran) {
+  if (S.ilamlar) {
+    const tavan = S.izler.some((i) => i.adim === '107/3-4 tavanı');
+    n.ks = { metin: `Her ilamın kendi oranıyla bulunan KS paylarının toplamı: ${S.ks_gun} gün${tavan ? ' (107/3-4 tavanı uygulandı)' : ''}.`, madde: maddeBul(kt, tavan ? 'R031' : 'R005') };
+  } else if (S.temel_oran) {
     const oran = S.oran ? String(S.oran) : String(S.temel_oran.oran);
     n.ks = { metin: `Koşullu salıverilme oranı ${oran}: ${S.ks_gun} gün.${S.ust_sinir_108_2?.uygulandi ? ' 108/2 sınırı uygulandı.' : ''}`, madde: maddeBul(kt, S.oran && S.anahtar !== 'yok' ? S.anahtar === 'ikinci' ? 'R028' : 'R027' : S.temel_oran.kaynak) };
   } else if (S.muebbet) {
@@ -143,26 +146,45 @@ function karsilastirma(c, secili) {
   });
 }
 
-// Ana giriş. `anahtar` verilmezse dosyanın tekerrür cevabına göre senaryo seçilir.
+// Toplamada ilam dökümü: her ilamın cezası, günü, oranı ve KS payı.
+function toplamaOzeti(c, S) {
+  const t = c.toplama;
+  return {
+    ilam_sayisi: t.ilam_sayisi,
+    toplam_ceza: t.toplam_ceza,
+    toplam_gun: t.toplam_gun,
+    ks_gun: S.ks_gun,
+    tavan: S.izler.some((i) => i.adim === '107/3-4 tavanı'),
+    ilamlar: t.ilamlar.map((k) => ({ sira: k.sira, etiket: k.etiket, suc_tarihi: k.suc_tarihi, ceza: k.ceza, gun: k.gun, oran: k.oran ? String(k.oran) : '—', ks_pay: k.ks_ham_gun ? k.ks_ham_gun.ondalik(2) : '—', tekerrur: k.tekerrur, para_hapis: k.para_hapis })),
+  };
+}
+
+// Ana giriş. `anahtar` verilmezse dosyanın tekerrür cevabına göre senaryo seçilir; birden çok
+// ilamda toplama senaryosu gösterilir. `x` dosya veya ilam görünümüdür.
 // `talepsiz`: aynı dosyanın hükümlü DS talep etmeden hesabı (yoksa gösterilmez).
-export function sonucOzeti(kt, d, c, anahtar = null, talepsiz = null) {
-  if (kapsamDisi(d)) {
+export function sonucOzeti(kt, x, c, anahtar = null, talepsiz = null) {
+  const tam = tamDosya(x);
+  const d = anaGorunum(x);
+  const coklu = tam.ilamlar.length > 1;
+  if (kapsamDisi(tam)) {
     return { durum: 'kapsam_disi', mesaj: `${tr(KAPSAM_BASLANGICI)} öncesi suçlar bu araçta hesaplanmaz (765 sayılı TCK ile lehe kanun karşılaştırması gerekir).` };
   }
-  if (c && !c.senaryolar?.yok) {
+  const secili = coklu ? 'birlesik' : anahtar || gosterilenSenaryo(d);
+  // Çekirdek senaryo üretmediyse (eksik veya hatalı bilgi) nedenler gösterilir.
+  if (c && !c.senaryolar?.[coklu ? 'birlesik' : 'yok']) {
     return { durum: 'hesaplanamadi', baslik: 'Bilgileri kontrol edin', karsilastirma: [], varsayimlar: [], dikkat: [], mesaj: [...(c.eksik_veri || []), ...(c.notlar || [])].map((n) => n.mesaj).join(' ') || 'Bu bilgilerle hesap oluşturulamadı.' };
   }
-  if (!hesaplanabilir(d) || !c) {
-    return { durum: 'bos', mesaj: 'Suç tarihi ve ceza girildiğinde sonuç burada görünür.' };
+  if (!hesaplanabilir(tam) || !c) {
+    return { durum: 'bos', mesaj: coklu ? 'Her ilamın suç tarihi ve cezası girildiğinde toplam sonuç burada görünür.' : 'Suç tarihi ve ceza girildiğinde sonuç burada görünür.' };
   }
-  const secili = anahtar || gosterilenSenaryo(d);
   const S = c.senaryolar[secili];
   const ortak = {
     senaryo: secili,
-    baslik: BASLIK[secili],
-    karsilastirma: karsilastirma(c, secili),
-    varsayimlar: varsayimSatirlari(d),
+    baslik: coklu ? `Toplanan cezalar · ${tam.ilamlar.length} ilam` : BASLIK[secili],
+    karsilastirma: coklu ? [] : karsilastirma(c, secili),
+    varsayimlar: varsayimSatirlari(tam),
     dikkat: [],
+    toplama: coklu && c.toplama && S ? toplamaOzeti(c, S) : null,
   };
   if (!S || !S.uygulanabilir || S.hesaplanamadi || !S.takvim || S.kurumda_kalis_gun === null) {
     return { ...ortak, durum: 'hesaplanamadi', mesaj: S?.neden || 'Bu senaryo hesaplanamadı.', dikkat: S ? dikkatNotlari(c, S) : [] };
@@ -221,12 +243,17 @@ function talepsizOzet(S, T2) {
 }
 
 // Müvekkile gönderilebilecek düz metin.
-export function paylasimMetni(d, o) {
+export function paylasimMetni(x, o) {
   if (o.durum !== 'tamam') return o.mesaj || '';
-  const suc = d.suc ? `${sucAdi(d.suc) || maddeEtiketi(d.suc)}` : null;
-  const ceza = { muebbet: 'Müebbet hapis', agirlastirilmis_muebbet: 'Ağırlaştırılmış müebbet hapis' }[d.ceza_turu] || T.cezaMetni(d.ceza);
+  const d = anaGorunum(x);
   const satirlar = [];
-  satirlar.push(`${ceza}${suc ? ` · ${suc}` : ''} · suç tarihi ${tr(d.suc_tarihi)} · ${BASLIK[o.senaryo]}`);
+  if (o.toplama) {
+    satirlar.push(`Toplam ${T.cezaMetni(o.toplama.toplam_ceza)} hapis · ${o.toplama.ilam_sayisi} ilam (toplanarak infaz)`);
+  } else {
+    const suc = d.suc ? `${sucAdi(d.suc) || maddeEtiketi(d.suc)}` : null;
+    const ceza = { muebbet: 'Müebbet hapis', agirlastirilmis_muebbet: 'Ağırlaştırılmış müebbet hapis' }[d.ceza_turu] || T.cezaMetni(d.ceza);
+    satirlar.push(`${ceza}${suc ? ` · ${suc}` : ''} · suç tarihi ${tr(d.suc_tarihi)} · ${BASLIK[o.senaryo]}`);
+  }
   const parca = [];
   if (o.kapali) parca.push(`${o.kapali} gün kapalı`);
   if (o.acik) parca.push(`${o.acik} gün açık cezaevinde`);

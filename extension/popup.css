@@ -588,3 +588,91 @@ main { padding-top: 20px; max-width: 1280px; }
 .faz-bag { display: flex; align-items: center; justify-content: space-between; gap: 2px; }
 .sayi-kutu .faz-no { opacity: 1; }
 .gerekce-govde { font-size: 0.88rem; }
+
+/* 0.7 — belgeden okuma, çok ilamlı dosya. */
+.cevaplar { display: grid; gap: 10px; }
+.cevap-grup { display: flex; flex-wrap: wrap; gap: 7px; min-width: 0; }
+.ilam-grup { background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 14px; padding: 10px; display: grid; gap: 8px; min-width: 0; }
+.ilam-grup.aktif { border-color: color-mix(in srgb, var(--ana) 45%, var(--cizgi)); box-shadow: var(--golge); }
+.ilam-grup .cevap { background: var(--yuzey-2); border-color: transparent; font-size: 0.8rem; padding: 6px 9px; }
+.ilam-grup .cevap.aktif { border-color: var(--ana); background: var(--ana-acik); }
+.ilam-grup:not([open]) { padding-block: 6px; }
+.ilam-grup-ust { display: flex; align-items: center; gap: 10px; min-width: 0; list-style: none; cursor: pointer; min-height: 40px; border-radius: 10px; }
+.ilam-grup-ust::-webkit-details-marker { display: none; }
+.ilam-grup[open] > .ilam-grup-ust { align-items: flex-start; }
+.ilam-durum { flex: none; font-size: 0.66rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.ilam-durum.bekliyor { background: var(--sari-zemin); color: var(--sari); }
+.ilam-durum.tamam { background: var(--acik-zemin); color: var(--acik); }
+.ilam-grup-ust > div { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.ilam-grup-ust b { font-size: 0.82rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+.ilam-grup-ust small { color: var(--soluk); font-size: 0.72rem; }
+.ilam-no { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 8px; background: var(--ana-acik); color: var(--ana); font-size: 0.75rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.ilam-sil { flex: none; min-width: 36px; height: 36px; margin: -4px -4px -4px 0; border: 0; border-radius: 10px; background: transparent; color: var(--silik); font-size: 0.8rem; font-weight: 700; padding: 0 8px; }
+.ilam-sil:hover { background: var(--yuzey-2); color: var(--uyari); }
+.ilam-sil.onay, .dugme.onay { background: var(--uyari-zemin); color: var(--uyari); border-color: var(--uyari); }
+.ilam-ekle { justify-self: start; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1.5px dashed var(--cizgi); background: transparent; color: var(--ana); font-weight: 650; font-size: 0.85rem; }
+.ilam-ekle:hover { border-color: var(--ana); background: var(--ana-acik); }
+.ilam-baglam { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; margin: 2px 0 4px; border-radius: 12px; background: var(--ana-acik); background: color-mix(in srgb, var(--ana-acik) 60%, var(--yuzey)); min-width: 0; }
+.ilam-baglam .ilam-no { background: var(--ana); color: var(--ana-metin); }
+.ilam-baglam > div { display: grid; gap: 1px; min-width: 0; }
+.ilam-baglam small { color: var(--soluk); font-size: 0.72rem; }
+.ilam-baglam > div > small:first-child { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.62rem; font-weight: 700; color: var(--ana); }
+.ilam-baglam b { font-size: 0.86rem; font-weight: 650; overflow-wrap: anywhere; }
+.secenek.hizli { border-style: dashed; border-color: color-mix(in srgb, var(--ana) 45%, var(--cizgi)); }
+.belge-oneri { display: grid; gap: 6px; padding: 10px; border-radius: 12px; background: var(--acik-zemin); background: color-mix(in srgb, var(--acik-zemin) 60%, var(--yuzey)); }
+.belge-oneri > span { font-size: 0.75rem; font-weight: 650; color: var(--acik); }
+.belge-oneri small { color: var(--acik); }
+
+.belge-karti { margin-bottom: 12px; min-width: 0; }
+.belge-karti:empty { display: none; }
+.belge-ac { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 14px; border-radius: 14px; border: 1.5px dashed color-mix(in srgb, var(--ana) 40%, var(--cizgi)); background: var(--yuzey); color: var(--metin); }
+.belge-ac:hover { border-style: solid; border-color: var(--ana); }
+.belge-ac > svg { width: 34px; height: 34px; padding: 7px; border-radius: 10px; background: var(--ana-acik); color: var(--ana); }
+.belge-ac > span { display: grid; gap: 2px; min-width: 0; }
+.belge-ac b { font-size: 0.9rem; font-weight: 650; }
+.belge-ac small { color: var(--soluk); font-size: 0.74rem; overflow-wrap: anywhere; }
+.belge-karti.acik { background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: var(--yaricap); box-shadow: var(--golge); padding: 16px; }
+.belge-ust { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.belge-ust h2 { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; margin: 0; }
+.belge-ust h2 svg { color: var(--ana); }
+.belge-metni { width: 100%; min-height: 150px; resize: vertical; margin-top: 8px; padding: 12px; border-radius: 12px; border: 1.5px solid var(--cizgi); background: var(--yuzey); color: var(--metin); font: inherit; font-size: 0.85rem; line-height: 1.5; }
+.belge-metni:focus { border-color: var(--ana); outline: none; }
+.belge-eylem { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.belge-eylem .dugme { flex: 1 1 auto; }
+.dugme[disabled] { opacity: 0.55; cursor: progress; }
+.dosya-sec { position: relative; cursor: pointer; }
+.dosya-sec input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.dosya-sec:focus-within { outline: 3px solid var(--ana); outline-offset: 3px; }
+.belge-onizleme { display: grid; gap: 8px; margin-top: 8px; min-width: 0; }
+.belge-tur { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--soluk); }
+.belge-tur .rozet { background: var(--ana-acik); color: var(--ana); }
+.belge-kisi { margin: 0; font-weight: 650; font-size: 0.9rem; }
+.belge-ilamlar { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.belge-ilamlar > li { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid var(--cizgi); border-radius: 12px; min-width: 0; }
+.belge-ilamlar > li > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.belge-ilam-ust { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: 10px; row-gap: 2px; }
+.belge-ilam-ust b { font-size: 0.84rem; font-weight: 650; overflow-wrap: anywhere; }
+.belge-ilam-ust .ceza { font-variant-numeric: tabular-nums; color: var(--ana); white-space: nowrap; }
+.belge-ilamlar small { color: var(--soluk); font-size: 0.7rem; overflow-wrap: anywhere; }
+.belge-etiketler { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.belge-etiketler span, .belge-ilam-ust .sorulacak { font-size: 0.68rem; padding: 2px 7px; border-radius: 6px; background: var(--yuzey-2); color: var(--metin); font-variant-numeric: tabular-nums; }
+.belge-etiketler .sorulacak, .belge-ilam-ust .sorulacak { background: transparent; border: 1px dashed var(--cizgi); color: var(--soluk); }
+.ilam-dokumu th small, .ilam-dokumu td small { display: block; color: var(--soluk); font-weight: 500; font-size: 0.68rem; margin-top: 2px; white-space: normal; }
+.belge-toplam { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 0.8rem; }
+.belge-toplam.uyusur { background: var(--acik-zemin); color: var(--acik); }
+.belge-toplam.uyusmaz { background: var(--sari-zemin); color: var(--sari); }
+.belge-liste { margin: 0; padding-left: 18px; font-size: 0.82rem; display: grid; gap: 4px; }
+.belge-uyari { margin: 0; padding: 10px 12px 10px 28px; border-radius: 10px; background: var(--sari-zemin); color: var(--metin); font-size: 0.8rem; display: grid; gap: 4px; }
+.ilam-dokumu .md-tablo { min-width: 0; }
+.ilam-dokumu tbody th { white-space: normal; }
+.ilam-dokumu td { white-space: normal; }
+.ilam-dokumu td:first-of-type { white-space: nowrap; }
+.ilam-dokumu .sayi { text-align: right; font-variant-numeric: tabular-nums; }
+.ilam-dokumu tfoot th, .ilam-dokumu tfoot td { font-weight: 700; border-bottom: 0; }
+@media (min-width: 900px) {
+  /* Uzun ilam listesinde sol sütun kendi içinde kayar. */
+  .sutun-soru { max-height: calc(100vh - 110px); overflow-y: auto; overscroll-behavior: contain; padding: 2px 6px 12px 2px; scrollbar-width: thin; }
+}
+@media print {
+  .belge-karti, .ilam-sil, .ilam-ekle { display: none !important; }
+}

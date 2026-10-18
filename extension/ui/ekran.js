@@ -5,7 +5,8 @@ import { takvim as T } from '../cekirdek/index.js';
 import { $, esc } from './yardimci.js';
 import { metin, TEMEL_SORULAR } from './sorular.js';
 import { sucAra, maddeCoz } from './tck-maddeleri.js';
-import { ozelDurum, mahsupGunu, MAHSUP_TURLERI } from './dosya.js';
+import { ozelDurum, mahsupGunu, siraliIlamAdi, MAHSUP_TURLERI } from './dosya.js';
+import { maddeEtiketi } from './tck-maddeleri.js';
 import { sureYaklasik } from './ozet.js';
 
 const tr = (s) => (s ? T.trTarih(s) : '—');
@@ -23,12 +24,103 @@ const IKON = {
 // Cevaplar
 // ---------------------------------------------------------------------------
 
-export function cevaplarCiz(liste, aktifId) {
-  $('cevaplar').innerHTML = liste.length
-    ? liste
-        .map((c) => `<button type="button" class="cevap${c.bilinmiyor ? ' bilinmiyor' : ''}${c.id === aktifId ? ' aktif' : ''}" data-duzenle="${esc(c.id)}" title="Değiştir">${esc(c.metin)}</button>`)
-        .join('')
+// Gruplar (sorular.js → cevapGruplari): tek ilamda tek grup; birden çok ilamda dosya grubu
+// ve ilam başına başlıklı, katlanır grup. `aktif`: ekrandaki soru örneği { s, i }.
+// Telefonda uzun liste soru kartını aşağı itmesin diye yalnız soru sorulan ilam ve avukatın
+// açtığı ilamlar (`acikIlamlar`) açık çizilir. Açma/kapama uygulama.js'de durumdan yönetilir.
+export function cevaplarCiz(gruplar, aktif, { ilamEkle = false, acikIlamlar = new Set() } = {}) {
+  const aktifMi = (c) => aktif && aktif.s.id === c.id && (aktif.i ?? null) === (c.i ?? null);
+  const kutu = (c) =>
+    `<button type="button" class="cevap${c.bilinmiyor ? ' bilinmiyor' : ''}${aktifMi(c) ? ' aktif' : ''}" data-duzenle="${esc(c.id)}"${c.i !== null && c.i !== undefined ? ` data-ilam="${c.i}"` : ''} title="Değiştir">${esc(c.metin)}</button>`;
+  const ilamGrubu = (g) => {
+    const etkin = aktif?.i === g.i;
+    const acik = etkin || acikIlamlar.has(g.i);
+    const durum = g.eksik ? `<span class="ilam-durum bekliyor">${g.eksik} soru</span>` : `<span class="ilam-durum tamam" title="Temel bilgiler tamam">✓</span>`;
+    return `<details class="ilam-grup${etkin ? ' aktif' : ''}" data-ilam-grup="${g.i}"${acik ? ' open' : ''}>
+      <summary class="ilam-grup-ust"><span class="ilam-no" aria-hidden="true">${g.i + 1}</span><div><b>${esc(g.baslik)}</b>${g.alt ? `<small>${esc(g.alt)}</small>` : ''}</div>${durum}<button type="button" class="ilam-sil" data-ilam-sil="${g.i}" title="İlamı dosyadan çıkar" aria-label="${g.i + 1}. ilamı dosyadan çıkar">✕</button></summary>
+      <div class="cevap-grup">${g.cevaplar.map(kutu).join('') || '<span class="ipucu">Sorular sırayla gelecek.</span>'}</div></details>`;
+  };
+  const html = gruplar
+    .map((g) =>
+      g.baslik === null
+        ? g.cevaplar.length
+          ? `<div class="cevap-grup">${g.cevaplar.map(kutu).join('')}</div>`
+          : ''
+        : ilamGrubu(g),
+    )
+    .join('');
+  $('cevaplar').innerHTML = html + (ilamEkle ? '<button type="button" class="ilam-ekle" data-ilam-ekle="1">＋ Başka ilam ekle</button>' : '');
+}
+
+// ---------------------------------------------------------------------------
+// Belgeden okuma paneli
+// ---------------------------------------------------------------------------
+
+const BELGE_SIMGE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>';
+const MAHSUP_ADI = Object.fromEntries(MAHSUP_TURLERI);
+
+function okumaOnizleme(r, mevcutVar) {
+  const ilamlar = r.ilamlar || [];
+  // Telefonda tablo yana taşar; her ilam bir satır kartıdır. Okunamayan alan "sorulacak" etiketiyle.
+  const etiket = (deger, bos) => (deger ? `<span>${esc(deger)}</span>` : `<span class="sorulacak">${bos}</span>`);
+  const satir = (i, n) => {
+    const ceza = i.ceza ? T.cezaMetni(i.ceza) : { muebbet: 'Müebbet', agirlastirilmis_muebbet: 'Ağırlaştırılmış müebbet' }[i.ceza_turu];
+    const suc = i.maddeler?.length ? i.maddeler.map(maddeEtiketi).join(', ') : i.suc_adi;
+    return `<li><span class="ilam-no" aria-hidden="true">${i.sira ?? n + 1}</span><div>
+      <div class="belge-ilam-ust"><b>${esc(i.mahkeme_kisa || 'Mahkeme okunamadı')}</b>${ceza ? `<b class="ceza">${esc(ceza)}</b>` : '<span class="sorulacak">ceza okunamadı</span>'}</div>
+      <small>${esc([i.esas_no && `${i.esas_no} E.`, i.karar_no && `${i.karar_no} K.`, i.infaz_no && `infaz ${i.infaz_no}`].filter(Boolean).join(' · '))}</small>
+      <div class="belge-etiketler">${etiket(i.karar_tarihi && `hüküm ${tr(i.karar_tarihi)}`, 'hüküm tarihi yok')}${etiket(i.suc_tarihi && `suç ${tr(i.suc_tarihi)}`, 'suç tarihi sorulacak')}${etiket(suc, 'suç sorulacak')}</div>
+    </div></li>`;
+  };
+  const toplam = r.toplam
+    ? `<p class="belge-toplam ${r.toplam.uyusuyor === false ? 'uyusmaz' : 'uyusur'}">${r.toplam.uyusuyor === false ? '⚠' : '✓'} Karardaki toplam: <b>${esc(T.cezaMetni(r.toplam.ceza))}</b>${r.toplam.uyusuyor === false ? ` · okunan ilamların toplamı ${esc(T.cezaMetni(r.toplam.ilamlar_toplami))}` : ' · ilam cezalarının toplamıyla uyuşuyor'}</p>`
     : '';
+  const infaz = r.infaz
+    ? `<ul class="belge-liste">${r.infaz.baslama ? `<li>Cezaevine giriş: <b>${esc(tr(r.infaz.baslama))}</b></li>` : ''}${(r.infaz.mahsuplar || []).map((m) => `<li>${esc(MAHSUP_ADI[m.tur])}: <b>${m.gun ? `${m.gun} gün` : `${esc(tr(m.baslangic))} – ${esc(tr(m.bitis))}`}</b></li>`).join('')}</ul>`
+    : '';
+  const md = Object.entries(r.muddetname || {});
+  const mdHtml = md.length ? `<p class="ipucu">Müddetnamedeki ${md.length} tarih karşılaştırma tablosuna aktarılacak.</p>` : '';
+  return `<div class="belge-onizleme">
+    <div class="belge-tur"><span class="rozet">${esc(r.tur_adi)}</span>${r.karar?.mahkeme ? `<span>${esc(r.karar.mahkeme)}${r.karar.karar_no ? ` · karar ${esc(r.karar.karar_no)}` : ''}${r.karar.karar_tarihi ? ` · ${esc(tr(r.karar.karar_tarihi))}` : ''}</span>` : ''}</div>
+    ${r.kisi?.ad || r.kisi?.dogum_tarihi ? `<p class="belge-kisi">${esc(r.kisi.ad || '')}${r.kisi.dogum_tarihi ? ` · doğum ${esc(tr(r.kisi.dogum_tarihi))}` : ''}</p>` : ''}
+    ${ilamlar.length ? `<ol class="belge-ilamlar" aria-label="Okunan ilamlar">${ilamlar.map(satir).join('')}</ol>` : ''}
+    ${toplam}${infaz}${mdHtml}
+    ${r.uyarilar?.length ? `<ul class="belge-uyari">${r.uyarilar.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}
+    <p class="ipucu">Okunanları kontrol edin. Belgede olmayan bilgiler (suç tarihi, suç, tekerrür, gözaltı/tutukluluk) her ilam için sırayla sorulacak.</p>
+    <div class="belge-eylem">
+      ${r.tur === 'bilinmiyor' ? '' : mevcutVar ? '<button type="button" class="dugme ana" data-belge="birlestir">Mevcut dosyaya ekle</button><button type="button" class="dugme" data-belge="yeni">Yeni dosya başlat</button>' : '<button type="button" class="dugme ana" data-belge="birlestir">Hesaba aktar</button>'}
+      <button type="button" class="dugme hafif" data-belge="geri">Geri</button>
+    </div>
+  </div>`;
+}
+
+// b: { acik, metin, okuma, hata, sonuc, mevcutVar, ozet (dosyadaki belge özeti) }
+export function belgeKartiCiz(b) {
+  const el = $('belgeKarti');
+  if (!b.acik) {
+    const oz = b.ozet;
+    el.className = 'belge-karti kapali';
+    el.innerHTML = `<button type="button" class="belge-ac" data-belge="ac">${BELGE_SIMGE}<span><b>Belgeden oku</b><small>${oz ? esc([oz.tur_adi, oz.karar?.mahkeme, oz.toplam && `toplam ${T.cezaMetni(oz.toplam)}`].filter(Boolean).join(' · ')) : 'İçtima kararı, müddetname veya gerekçeli karar'}</small></span></button>`;
+    return;
+  }
+  el.className = 'belge-karti acik';
+  if (b.sonuc) {
+    el.innerHTML = `<div class="belge-ust"><h2>${BELGE_SIMGE} Belgeden aktarıldı</h2></div>
+      <ul class="belge-liste">${b.sonuc.degisiklikler.map((x) => `<li>${esc(x)}</li>`).join('') || '<li>Yeni bilgi bulunamadı; dosyadaki cevaplar korundu.</li>'}</ul>
+      ${b.sonuc.uyarilar.length ? `<ul class="belge-uyari">${b.sonuc.uyarilar.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}
+      <div class="belge-eylem"><button type="button" class="dugme ana" data-belge="kapat">Tamam, sorulara geç</button><button type="button" class="dugme hafif" data-belge="baska">Başka belge oku</button></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="belge-ust"><h2>${BELGE_SIMGE} Belgeden oku</h2><button type="button" class="dugme hafif" data-belge="kapat" aria-label="Kapat">✕</button></div>
+    ${b.okuma ? okumaOnizleme(b.okuma, b.mevcutVar) : `
+    <p class="ipucu">İçtima (toplama) kararı, müddetname veya gerekçeli kararın metnini yapıştırın ya da UYAP'tan indirdiğiniz <b>.udf</b> dosyasını seçin. Metin bu cihazda okunur; hiçbir yere gönderilmez.</p>
+    <textarea id="belgeMetni" class="belge-metni" rows="7" placeholder="UYAP Evrak Görüntüleme sayfasındaki metni buraya yapıştırın…" aria-label="Belge metni">${esc(b.metin || '')}</textarea>
+    ${b.hata ? `<p class="uyari" role="alert">${esc(b.hata)}</p>` : ''}
+    ${b.okunuyor ? '<p class="ipucu" role="status">Dosya okunuyor…</p>' : ''}
+    <div class="belge-eylem">
+      <button type="button" class="dugme ana" data-belge="oku"${b.okunuyor ? ' disabled' : ''}>Metni oku</button>
+      <label class="dugme dosya-sec"><input type="file" id="belgeDosyasi" accept=".udf,.txt,.html,.htm,.xml,application/zip,text/plain,text/html"${b.okunuyor ? ' disabled' : ''}>Dosya seç (.udf)</label>
+    </div>`}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,7 +149,8 @@ function govde(s, d, durum) {
         .join('')}</div>`;
     case 'tarih': {
       const deger = s.id === 'suc_tarihi' ? d.suc_tarihi : d.ek[s.id];
-      return `<input type="date" id="s_tarih" aria-label="${esc(metin(s.baslik, d))}" class="buyuk-girdi" value="${esc(deger || '')}" max="2100-12-31">`;
+      const hizli = s.id === 'suc_tarihi' && durum.ayniTarih && !deger ? `<button type="button" class="secenek satir hizli" data-tarih-hizli="${esc(durum.ayniTarih.tarih)}"><b>${esc(tr(durum.ayniTarih.tarih))}</b><small>${esc(durum.ayniTarih.ad)} ile aynı (aynı hüküm)</small></button>` : '';
+      return `${hizli}<input type="date" id="s_tarih" aria-label="${esc(metin(s.baslik, d))}" class="buyuk-girdi" value="${esc(deger || '')}" max="2100-12-31">`;
     }
     case 'ceza': {
       const esas = s.id === 'esas_ceza';
@@ -73,7 +166,11 @@ function govde(s, d, durum) {
       const serbest = maddeCoz(sorgu);
       const ozel = ozelDurum(d);
       const listede = serbest && sonuclar.some((x) => x.kanun === 5237 && x.madde === serbest.madde);
-      return `<input type="search" id="s_ara" aria-label="Suç adı veya TCK maddesi" class="buyuk-girdi" placeholder="hırsızlık, 142, 87/2-d…" value="${esc(sorgu)}" autocomplete="off">
+      const oneriler = d.meta?.madde_onerileri || [];
+      const belgeden = oneriler.length
+        ? `<div class="belge-oneri"><span>Belgede geçen${d.meta.suc_adi ? ` · ${esc(d.meta.suc_adi)}` : ''}:</span>${oneriler.map((o, n) => `<button type="button" class="secenek satir" data-suc-oneri="${n}"><b>${esc(maddeEtiketi(o))}</b><small>belgeden</small></button>`).join('')}</div>`
+        : d.meta?.suc_adi ? `<p class="ipucu">Belgede suç: <b>${esc(d.meta.suc_adi)}</b></p>` : '';
+      return `${belgeden}<input type="search" id="s_ara" aria-label="Suç adı veya TCK maddesi" class="buyuk-girdi" placeholder="hırsızlık, 142, 87/2-d…" value="${esc(sorgu)}" autocomplete="off">
         <div class="suc-listesi">${sonuclar
           .map((x) => `<button type="button" class="secenek satir${d.suc?.kanun === x.kanun && d.suc?.madde === x.madde ? ' secili' : ''}" data-suc="${x.kanun}|${esc(x.madde)}"><b>${esc(x.etiket)}</b><small>${esc(x.ad)}</small></button>`)
           .join('')}
@@ -178,12 +275,15 @@ function mevcutSecim(s, d) {
 
 const DEVAM_GEREKEN = new Set(['tarih', 'ceza', 'mahsup', 'fikra']);
 
-export function soruCiz(s, d, durum) {
+// o: soru örneği { s, i, g } (g ilam görünümü). durum.ilamBaglam: birden çok ilamda başlık.
+export function soruCiz(o, durum) {
+  const s = o?.s;
+  const d = o?.g;
   const kart = $('soruKarti');
   if (!s) {
     kart.className = 'soru-karti bitti';
     kart.innerHTML = durum.hesaplanabilir
-      ? `<div class="bitti-satir">${IKON.tamam}<div><b>Gerekli bilgiler tamam.</b><small>Bir cevabı değiştirmek için yukarıdaki kutucuklara dokunun.</small></div></div>`
+      ? `<div class="bitti-satir">${IKON.tamam}<div><b>Gerekli bilgiler tamam.</b><small>${durum.coklu ? 'Bir ilamın cevaplarını görmek ve değiştirmek için ilam başlığına dokunun.' : 'Bir cevabı değiştirmek için yukarıdaki kutucuklara dokunun.'}</small></div></div>`
       : '';
     return;
   }
@@ -193,6 +293,7 @@ export function soruCiz(s, d, durum) {
   kart.className = `soru-karti${temel ? '' : ' ek'}`;
   kart.innerHTML = `
     <div class="soru-ust"><span class="sira">${esc(sira)}</span>${durum.ilerleme !== null ? `<span class="ilerleme"><i style="width:${Math.round(durum.ilerleme * 100)}%"></i></span>` : ''}</div>
+    ${durum.ilamBaglam ? `<div class="ilam-baglam"><span class="ilam-no" aria-hidden="true">${durum.ilamBaglam.no}</span><div><small>${durum.ilamBaglam.no}. ilam / ${durum.ilamBaglam.toplam}</small><b>${esc(durum.ilamBaglam.ad)}</b>${durum.ilamBaglam.alt ? `<small>${esc(durum.ilamBaglam.alt)}</small>` : ''}</div></div>` : ''}
     <h2>${esc(metin(s.baslik, d))}</h2>
     ${s.aciklama ? `<p class="soru-aciklama">${esc(metin(s.aciklama, d))}</p>` : ''}
     <div class="soru-govde">${govde(s, d, durum)}</div>
@@ -317,6 +418,17 @@ function karsilastirmaHtml(o, gorunen) {
     .join('')}</div>${gorunen ? '<p class="ipucu">Karşılaştırma görünümü. Dosyanın kendi sonucuna dönmek için seçili kartlara dokunun.</p>' : ''}`;
 }
 
+// Toplanan cezalarda ilam başına ceza, gün, oran ve KS payı.
+function ilamDokumu(t) {
+  // Üç sütun: telefonda yana kaydırmadan okunur. KS payı, oranıyla birlikte.
+  const satir = (k) => `<tr><th scope="row">${esc(siraliIlamAdi(k.sira, k.etiket))}<small>suç ${esc(tr(k.suc_tarihi))}${k.tekerrur !== 'yok' ? ` · ${k.tekerrur === 'birinci' ? '1.' : '2.'} tekerrür` : ''}${k.para_hapis ? ' · paradan çevrilen' : ''}</small></th><td>${esc(T.cezaMetni(k.ceza))}<small>${k.gun} gün</small></td><td class="sayi">${esc(k.ks_pay)}<small>${esc(k.oran)} oranla</small></td></tr>`;
+  return `<section class="ilam-dokumu"><h3 class="kiyas-baslik">İlam dökümü · toplanarak infaz</h3>
+    <div class="md-tablo-kaydir" tabindex="0" role="region" aria-label="İlam dökümü"><table class="md-tablo"><thead><tr><th scope="col">İlam</th><th scope="col">Ceza</th><th scope="col" class="sayi">KS payı (gün)</th></tr></thead>
+    <tbody>${t.ilamlar.map(satir).join('')}</tbody>
+    <tfoot><tr><th scope="row">Toplam · ${t.ilam_sayisi} ilam</th><td>${esc(T.cezaMetni(t.toplam_ceza))}<small>${t.toplam_gun} gün</small></td><td class="sayi">${t.ks_gun}${t.tavan ? '<small>107/3-4 tavanı</small>' : ''}</td></tr></tfoot></table></div>
+    <p class="ipucu">Her ilamın KS oranı kendi suç tarihi, maddesi ve tekerrürüne göre belirlenir; paylar toplanır (5275 m.99, 107/3-4).</p></section>`;
+}
+
 export function muddetnameTablosu(satirlar) {
   const farkli = satirlar.filter((r) => r.fark);
   const govde = satirlar
@@ -382,7 +494,7 @@ export function sonucCiz(o, { gorunen = null, acikNeden = null, paylasVar = fals
     parca.push(gerekceHtml(o));
   }
   if (!gorunen) parca.push(muddetnameKarti(muddetname, md));
-  parca.push(karsilastirmaHtml(o, gorunen));
+  parca.push(o.toplama ? ilamDokumu(o.toplama) : karsilastirmaHtml(o, gorunen));
   if (o.varsayimlar.length) {
     parca.push(`<div class="varsayimlar"><h3>Bilinmeyenler</h3><ul>${o.varsayimlar.map((v) => `<li>${esc(v)}</li>`).join('')}</ul></div>`);
   }

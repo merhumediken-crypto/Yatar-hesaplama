@@ -3,6 +3,7 @@
 import { takvim as T, Kesir, profilOlustur } from '../cekirdek/index.js';
 import { mahsupHesapla } from '../cekirdek/hesap/mahsup.js';
 import { maddeEtiketi, sucAdi } from './tck-maddeleri.js';
+import { siraliIlamAdi } from './dosya.js';
 
 const tr = (t) => t ? T.trTarih(t) : 'Yok';
 const sayi = (n) => Number(n).toLocaleString('tr-TR', { maximumFractionDigits: 8 });
@@ -46,6 +47,7 @@ function yolNedeni(y, S) {
 }
 
 export function gerekceKur(kt, d, c, S, o) {
+  if (S.ilamlar) return toplamaGerekcesi(kt, d, c, S, o);
   const t = S.takvim;
   const profil = profilOlustur(c.vaka.profil || {});
   const mahsup = mahsupHesapla(kt, c.vaka.mahsup_kayitlari, profil, { ekle() {} });
@@ -115,6 +117,31 @@ export function gerekceKur(kt, d, c, S, o) {
     ], kabuller, kararlar: S.gerekli_kararlar, satirlar: [{ etiket: 'Hesap tarihi', deger: tr(c.hesap_tarihi) }, { etiket: 'Kural paketi', deger: c.paket_surumu }, { etiket: 'Hesap profili', deger: c.hesap_profili_id }], kaynaklar: kaynaklar(kt, S.gerekli_kararlar.map((k) => k.kural)) },
   ];
   return { yol: gercekDS ? dsYolu?.ad || 'Denetimli serbestlik' : t.kosullu_saliverilme ? 'Koşullu salıverilme ile çıkış' : 'DS ve KS uygulanmayan infaz', adimlar, fazlar: { kapali: { metin: kapaliMetin, adim: 'kurum' }, acik: { metin: acikMetin, adim: 'kurum' }, ds: { metin: dsMetin, adim: 'ds' } } };
+}
+
+// Toplanan cezalar: tek ilam gerekçesinin adımları, ilam dökümüyle.
+function toplamaGerekcesi(kt, d, c, S, o) {
+  const tek = { ...S, ilamlar: undefined, izler: S.izler };
+  // d bir ilam görünümüdür (Proxy); yayılamaz, gereken dosya alanları açıkça verilir.
+  const g = gerekceKur(kt, { konum: d.konum, giris: d.giris, ceza: c.toplama.toplam_ceza, ceza_turu: 'sureli_hapis', suc_tarihi: null, suc: null }, c, tek, o);
+  const ilamSatirlari = c.toplama.ilamlar.map((k) => ({ etiket: siraliIlamAdi(k.sira, k.etiket), deger: `suç ${tr(k.suc_tarihi)} · ${T.cezaMetni(k.ceza)} = ${k.gun} gün × ${k.oran} = ${ondalik(k.ks_ham_gun)} gün${k.tekerrur !== 'yok' ? ` · ${k.tekerrur === 'birinci' ? '1.' : '2.'} tekerrür` : ''}` }));
+  const veriler = g.adimlar.find((a) => a.id === 'veriler');
+  veriler.ozet = `${T.cezaMetni(c.toplama.toplam_ceza)} · ${c.toplama.ilam_sayisi} ilam toplamı`;
+  veriler.satirlar = [
+    { etiket: 'Toplam ceza', deger: `${T.cezaMetni(c.toplama.toplam_ceza)} (${c.toplama.toplam_gun} gün)` },
+    { etiket: 'İnfaza başlama', deger: `${tr(S.takvim.infaza_baslama)}${d.konum !== 'cezaevinde' ? ' · varsayılan giriş' : ' · girilen giriş'}` },
+    ...ilamSatirlari,
+  ];
+  veriler.paragraflar = ['Cezalar 5275 m.99 uyarınca toplanarak tek infaz takviminde hesaplandı. Her ilam kendi rejimini korur (R005): koşullu salıverilme oranı, ilamın kendi suç tarihi, maddesi ve tekerrür durumuna göre belirlenir.'];
+  const oran = g.adimlar.find((a) => a.id === 'oran');
+  oran.ozet = `${S.ks_gun} gün · ${tr(S.takvim.kosullu_saliverilme)}`;
+  oran.paragraflar = [
+    ...S.izler.filter((i) => S.ilamlar.some((k) => k.etiket === i.adim)).map((i) => `${i.adim}: ${i.aciklama}`),
+    ...S.izler.filter((i) => ['KS paylarının toplamı', '107/3-4 tavanı', 'Koşullu salıverilme'].includes(i.adim)).map((i) => `${i.adim}: ${i.aciklama}`),
+    'Kapalı/açık ayrımında toplam ceza, açığa ayrılmada en kısıtlayıcı ilamın şartı (Yönetmelik m.6/3); DS yollarında bir yolun bütün ilamlar için uygun olması esas alındı.',
+  ];
+  oran.kaynaklar = kaynaklar(kt, ['R005', 'R031', ...S.ilamlar.map((k) => k.temel_oran?.kaynak).filter(Boolean)]);
+  return g;
 }
 
 export function gerekceMetni(o) {

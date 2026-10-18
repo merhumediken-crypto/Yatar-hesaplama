@@ -2,15 +2,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { hesapla, takvim as T } from '../extension/cekirdek/index.js';
-import { bosDosya, dosyaYukle, vakaKur, ozelDurum, kapsamDisi, hesaplanabilir, mahsupGunu } from '../extension/ui/dosya.js';
+import { bosDosya, dosyaYukle, vakaKur, ozelDurum, kapsamDisi, hesaplanabilir, mahsupGunu, ilamGorunumu, tamDosya } from '../extension/ui/dosya.js';
 import { sonrakiSoru, cevapla, bilinmiyorCevabi, soru, cevaplar, varsayimSatirlari, TEMEL_SORULAR } from '../extension/ui/sorular.js';
 import { sonucOzeti, paylasimMetni, kurumBolumleri, muddetnameKarsilastir } from '../extension/ui/ozet.js';
 import { sucAra, maddeCoz } from '../extension/ui/tck-maddeleri.js';
 import { kt, HESAP } from './yardimci.js';
 
-// Temel soruları cevaplanmış dosya.
+// Temel soruları cevaplanmış tek ilamlı dosyanın ilam görünümü (dosya.js → ilamGorunumu).
 function dosya(ek = {}) {
-  return Object.assign(bosDosya(), {
+  return Object.assign(ilamGorunumu(bosDosya(), 0), {
     konum: 'girmedi',
     suc_tarihi: '2025-07-01',
     ceza: { yil: 3, ay: 1, gun: 15 },
@@ -28,8 +28,8 @@ const ozet = (d, anahtar) => sonucOzeti(kt, d, hesap(d), anahtar, hesapla(kt, va
 function sorulanlar(d) {
   const liste = [];
   for (let s = sonrakiSoru(kt, d, HESAP, hesap(d)); s; s = sonrakiSoru(kt, d, HESAP, hesap(d))) {
-    liste.push(s.id);
-    bilinmiyorCevabi(d, s.id);
+    liste.push(s.s.id);
+    bilinmiyorCevabi(s.g, s.s.id);
     if (liste.length > 20) throw new Error('soru döngüsü');
   }
   return liste;
@@ -72,8 +72,8 @@ test('dosya → vaka: giriş bugün, mahsup, 108/2 cezası, paradan çevrilen ha
 
 test('dosya yükleme: eski sürüm atılır, alanlar korunur', () => {
   assert.deepEqual(dosyaYukle({ surum: 2, alanlar: {} }), bosDosya());
-  const d = dosyaYukle(JSON.parse(JSON.stringify(dosya({ ek: { rapor: false }, bilinmiyor: ['yas'] }))));
-  assert.equal(d.suc.madde, '142');
+  const d = dosyaYukle(JSON.parse(JSON.stringify(tamDosya(dosya({ ek: { rapor: false }, bilinmiyor: ['yas'] })))));
+  assert.equal(d.ilamlar[0].suc.madde, '142');
   assert.deepEqual(d.ek, { rapor: false });
   assert.deepEqual(d.bilinmiyor, ['yas']);
 });
@@ -81,11 +81,12 @@ test('dosya yükleme: eski sürüm atılır, alanlar korunur', () => {
 test('temel sorular sırayla sorulur', () => {
   const d = bosDosya();
   const sira = [];
-  for (let s = sonrakiSoru(kt, d, HESAP, null); s && TEMEL_SORULAR.includes(s); s = sonrakiSoru(kt, d, HESAP, hesaplanabilir(d) ? hesap(d) : null)) {
+  for (let o = sonrakiSoru(kt, d, HESAP, null); o && TEMEL_SORULAR.includes(o.s); o = sonrakiSoru(kt, d, HESAP, hesaplanabilir(d) ? hesap(d) : null)) {
+    const s = o.s;
     sira.push(s.id);
     const cevap = { konum: 'cezaevinde', suc_tarihi: '2025-07-01', ceza: { ceza_turu: 'sureli_hapis', ceza: { yil: 2, ay: 0, gun: 0 } }, tekerrur: 'birinci', esas_ceza: { ceza: { yil: 1, ay: 0, gun: 0 } }, giris: { tur: 'tarih', tarih: '2026-03-01' }, mahsup: [] }[s.id];
-    if (cevap === undefined) bilinmiyorCevabi(d, s.id);
-    else cevapla(d, s, cevap);
+    if (cevap === undefined) bilinmiyorCevabi(o.g, s.id);
+    else cevapla(o.g, s, cevap);
   }
   assert.deepEqual(sira, ['konum', 'suc_tarihi', 'ceza', 'suc', 'tekerrur', 'esas_ceza', 'giris', 'mahsup']);
   assert.equal(soru('esas_ceza').gorunur({ ...d, tekerrur: 'yok' }), false, '108/2 sorusu yalnız 1. tekerrürde');
@@ -104,12 +105,12 @@ test('ek sorular yalnız sonucu değiştirdiğinde sorulur', () => {
 
 test('cevaplanan ek soru tekrar sorulmaz; çocuk seçilince doğum tarihi sorulur', () => {
   const d = dosya({ suc: { kanun: 5237, madde: '188' }, suc_tarihi: '2019-01-01', ceza: { yil: 10, ay: 0, gun: 0 } });
-  const s = sonrakiSoru(kt, d, HESAP, hesap(d));
+  const s = sonrakiSoru(kt, d, HESAP, hesap(d)).s;
   assert.equal(s.id, 'yas');
   cevapla(d, s, 'cocuk');
-  assert.equal(sonrakiSoru(kt, d, HESAP, hesap(d)).id, 'dogum_tarihi');
+  assert.equal(sonrakiSoru(kt, d, HESAP, hesap(d)).s.id, 'dogum_tarihi');
   cevapla(d, soru('dogum_tarihi'), '2002-06-01');
-  assert.notEqual(sonrakiSoru(kt, d, HESAP, hesap(d))?.id, 'yas');
+  assert.notEqual(sonrakiSoru(kt, d, HESAP, hesap(d))?.s.id, 'yas');
   assert.ok(cevaplar(d).some((c) => c.metin === 'Suçta 18 yaş altı'));
 });
 
@@ -246,4 +247,10 @@ test('müddetname karşılaştırması: fark gün olarak, müddetname daha geçs
   ]);
   assert.deepEqual(muddetnameKarsilastir({ durum: 'bos' }, {}), []);
   assert.deepEqual(dosyaYukle({ ...bosDosya(), muddetname: { ks: '2027-07-27' } }).muddetname, { ks: '2027-07-27' });
+  // Sürüm 3 (düz) kayıt sürüm 4'e çevrilir; ilama özgü ek cevap ilama taşınır
+  const v3 = dosyaYukle({ surum: 3, konum: 'cezaevinde', suc_tarihi: '2024-01-01', ceza: { yil: 2 }, suc: { kanun: 5237, madde: '86' }, ek: { magdur_yakinlik: 'es', rapor: false }, bilinmiyor: ['tekerrur', 'yas'], muddetname: { ks: '2027-07-27' } });
+  assert.equal(v3.surum, 4);
+  assert.equal(v3.ilamlar.length, 1);
+  assert.deepEqual([v3.ilamlar[0].suc_tarihi, v3.ilamlar[0].suc.madde, v3.ilamlar[0].ek.magdur_yakinlik], ['2024-01-01', '86', 'es']);
+  assert.deepEqual([v3.ek, v3.bilinmiyor, v3.ilamlar[0].bilinmiyor], [{ rapor: false }, ['yas'], ['tekerrur']]);
 });

@@ -89,7 +89,7 @@ export async function dosyaMetni(dosya) {
     if (!kayit) throw new BelgeHatasi('UDF içinde belge metni (content.xml) bulunamadı.');
     return { metin: udfXmlMetni(new TextDecoder('utf-8').decode(await kayit.oku())), bicim: 'udf' };
   }
-  if (BASLIK(b, 0x25, 0x50, 0x44, 0x46)) throw new BelgeHatasi('PDF dosyası doğrudan okunamıyor. PDF\'i açıp metni kopyalayın ve "Metni yapıştır" alanına yapıştırın; ya da UYAP\'tan .udf olarak indirin.');
+  if (BASLIK(b, 0x25, 0x50, 0x44, 0x46)) throw new BelgeHatasi('PDF dosyası doğrudan okunamıyor. PDF\'i açıp metni kopyalayın ve metin alanına yapıştırın; ya da UYAP\'tan .udf olarak indirin.');
   const metin = new TextDecoder(b[0] === 0xff && b[1] === 0xfe ? 'utf-16le' : 'utf-8').decode(b);
   if (/<html|<body|<div|<table/i.test(metin.slice(0, 4000))) return { metin: htmlMetni(metin), bicim: 'html' };
   return { metin, bicim: 'metin' };

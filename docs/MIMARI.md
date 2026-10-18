@@ -34,8 +34,10 @@ genişletme yollarını anlatır. Hedef: hukuki mantığın **veride**, hesap ma
    karar/     KararMotoru: düğüm değerlendirme, ihtiyat yönü tablosu, koşul izi
    zaman/     rasyonel sayı, takvim, hesap profili (A01)
    hesap/     oran · mahsup · çocuk gün ağırlığı · açık kurum · DS yolları · senaryo · usul süreleri
+   toplama/   birden çok ilamın toplanması (5275 m.99, 101/2, 107/3-4): ilam başına oran, ortak takvim
    tekerrur/  önceki ilam başına D100-D106 değerlendirmesi, aday derece, 108/2 tabanı
    cek/       5941: rejim seçimi, m.6 ödeme/vazgeçme, geçici m.5
+   belge/     belge okuyucu: metin normalleştirme, içtima kararı, müddetname, gerekçeli karar, UDF (ZIP)
    cikti/     çıktı modeli, durum makinesi, notlar, düz metin özet
         │  index.js (tek genel API)
         ▼
@@ -50,11 +52,41 @@ Bağımlılık yönü tek yönlüdür: `ui → cekirdek/index.js → alt modüll
 
 | Modül | Görev | DOM |
 |---|---|---|
-| `ui/dosya.js` | Avukatın cevapları ("dosya") → kanonik vaka. İyi hâl ve DS talebi açıkça var; kast, terör (3713 m.3) ve örgüt kurma/üyelik (220, 314) maddeden türetilir, avukatın seçimi önce gelir. 01/06/2005 öncesi kapsam dışı. | yok |
-| `ui/sorular.js` | Temel sorular sırayla; ek sorular yalnız sonucu değiştirdiğinde. Ek soru için çekirdeğin belgeli bağlamda belirsiz dediği alanlara bakılır, her cevap seçeneği ayrı hesaplanır, kapalı/açık/çıkış/KS imzası değişiyorsa soru sorulur. "Bilmiyorum" alanı boş bırakır; çekirdek olağan varsayımı veya ihtiyat çözümünü uygular. | yok |
-| `ui/ozet.js` | Seçili senaryonun takviminden kapalı / açık / DS günleri, zaman çizelgesi, nedenler (kural → madde bağlantısı), karşılaştırma ve paylaşım metni. | yok |
-| `ui/ekran.js` | Cevap kutucukları, soru kartı ve sonuç çizimi. | var |
-| `ui/uygulama.js` | Durum, olaylar, kalıcı kayıt (`chrome.storage` yoksa `localStorage`). | var |
+| `ui/dosya.js` | Avukatın cevapları ("dosya", sürüm 4) → kanonik vaka. Dosya = kişi düzeyi alanlar + `ilamlar` listesi; tek ilamlı hesap tek elemanlı listedir. İyi hâl ve DS talebi açıkça var; kast, terör (3713 m.3) ve örgüt kurma/üyelik (220, 314) maddeden türetilir, avukatın seçimi önce gelir. 01/06/2005 öncesi (herhangi bir ilamda) kapsam dışı. Sürüm 3 kaydı yüklenirken çevrilir. | yok |
+| `ui/sorular.js` | Temel sorular sırayla; ek sorular yalnız sonucu değiştirdiğinde. Ek soru için çekirdeğin belgeli bağlamda belirsiz dediği alanlara bakılır (toplamada ilgili ilamın alanları), her cevap seçeneği ayrı hesaplanır, kapalı/açık/çıkış/KS imzası değişiyorsa soru sorulur. "Bilmiyorum" alanı boş bırakır; çekirdek olağan varsayımı veya ihtiyat çözümünü uygular. | yok |
+| `ui/belge-aktar.js` | Belge okuma sonucu → dosya. "Yeni" kipi dosyayı belgeden kurar; "birleştir" kipi ilamları infaz no ya da esas+karar no ile (gerekirse ceza miktarıyla) eşler ve yalnız boş alanları doldurur. Her aktarım değişiklik satırı olarak döner. | yok |
+| `ui/ozet.js` | Seçili senaryonun takviminden kapalı / açık / DS günleri, zaman çizelgesi, nedenler (kural → madde bağlantısı), karşılaştırma ya da ilam dökümü ve paylaşım metni. | yok |
+| `ui/gerekce.js` | Altı adımlı gerekçe; toplamada veriler ve KS adımı ilam dökümüyle. | yok |
+| `ui/ekran.js` | Belge paneli, cevap kutucukları (ilam grupları), soru kartı ve sonuç çizimi. | var |
+| `ui/uygulama.js` | Durum, olaylar, kalıcı kayıt (`chrome.storage` yoksa `localStorage`). Belge metni kaydedilmez. | var |
+
+**İlam görünümü.** Soru tanımları tek bir ilam üzerinde yazılmıştır (`d.suc_tarihi`, `d.konum`,
+`d.ek.yas`). `ilamGorunumu(dosya, i)` bir Proxy'dir: ilam alanlarını (suç tarihi, ceza, suç,
+tekerrür, mahsup, mağdur gibi ilama özgü ek cevaplar) `dosya.ilamlar[i]`'ye, kişi alanlarını
+(konum, giriş, yaş, doğum, rapor) dosyaya yönlendirir; `bilinmiyor` listesi okunurken birleşir,
+yazılırken soru kapsamına göre bölünür. Böylece aynı soru tanımı her ilam için çalışır.
+Ekrandaki soru bir **soru örneği**dir: `{ s: soru, i: ilam sırası | null, g: görünüm }`.
+Tek ilamda sıra Faz 1 ile aynıdır; birden çok ilamda önce kişi ve giriş, sonra her ilamın
+suç tarihi → ceza → suç → tekerrür → (önceki ceza) → mahsup soruları gelir.
+
+**Belge okuyucu** (`cekirdek/belge/`). Metin NFC'ye çevrilir, satır sonları ve boşluklar
+düzenlenir; eşleştirme aynı uzunluktaki ASCII büyük harf "arama kopyası" üzerinde yapılır,
+bulunan aralık özgün metinden kesilir (her değer kaynak satırıyla döner, T.C. kimlik no
+maskelenir). Belge türü imzalarla belirlenir: içtima kararı ("İÇTİMASINA", numaralı
+"1) …" satırları), müddetname (başlık ya da en az iki infaz tarihi etiketi), gerekçeli karar
+("CEZALANDIRILMASINA", "HÜKÜM:"). İçtima kararında her numaralı satır bir ilamdır: mahkeme,
+hüküm tarihi, esas/karar no, ceza ve parantezdeki infaz no; karardaki toplamla ilam
+cezalarının bileşen toplamı (yıl, ay, gün ayrı) karşılaştırılır. Müddetnamede etiket eş
+anlamlıları aranır (açığa ayrılma, DS, KS, hak ederek tahliye, yakalama/infaza başlama) ve
+gözaltı/tutukluluk/konutu terk etmeme/kullanılan DS satırları aralık ya da gün olarak okunur.
+TCK maddelerinden yalnız özel hüküm maddeleri (m.76 ve sonrası) suç önerisidir. UDF, ZIP
+içindeki `content.xml`'dir; `DecompressionStream('deflate-raw')` ile açılır, CDATA metni
+alınır. PDF okunmaz (metnin yapıştırılması istenir). Okunamayan alan boş kalır ve sorulur;
+tahminle doldurulmaz.
+
+**Müddetname tarihleri** karşılaştırmaya yalnız müddetname bütün dosyaya aitse aktarılır:
+dosyada tek ilam varsa ya da müddetnamedeki ceza ilam cezalarının toplamına eşitse. Toplanan
+cezalarda tek ilamın müddetnamesi (o ilamın KS ve tahliye tarihleri) uyarıyla dışarıda kalır.
 
 Mahsup kayıtları (`dosya.mahsup`) gün ya da tarih aralığıdır; çekirdek aralığı iki uç dahil
 sayar, çakışmayı denetler (V08) ve konutu terk etmemeyi 2:1 uygular. Bu ilamda kullanılan
@@ -77,6 +109,9 @@ toplamı çekirdeğin `kurumda_kalis_gun` değerine eşittir. Açığa geçiş �
    `tests/veri.test.js` paketlerin kaynakla birebir güncel olduğunu denetler.
 
 ## 4. Hesap akışı (senaryo başına)
+
+Vakada birden çok ilam varsa `toplama/toplama.js` devreye girer (§4.2); tek ilamda aşağıdaki
+akış üç senaryo için çalışır.
 
 `hesapla(kt, vaka)` üç senaryoyu (tekerrürsüz / birinci / ikinci) bağımsız hesaplar.
 Sıra, kural tabanındaki `uygulama_sirasi` ile aynıdır:
@@ -113,6 +148,25 @@ olduğundan zaman çizelgesi aynı formülle kurulur (`gecici_10_6_modulu.tarih_
 Tekerrür tespiti (`tekerrur/tespit.js`) senaryolardan bağımsızdır; seçili senaryo önce
 hükümdeki tekerrürden, yoksa belgelerden belirlenen adaydan seçilir.
 
+### 4.2 Cezaların toplanması (5275 m.99, 101/2, 107/3-4; R005, R031)
+
+Çıktıda tek senaryo vardır: `birlesik`. Her ilam kendi rejimini korur (R005):
+
+1. **İlam başına değerlendirme**: ilamın kendi bağlamı (suç tarihi, madde, tekerrür, 108/2
+   için `tekerrure_esas_en_agir_ceza`) ile KS oranı; para-hapis ilamı oran 1 (106/9) ve DS'yi
+   kapatır; tazyik/disiplin hapsi (D005) ve KS yasağı/geri alma (D018) toplamayı durdurur.
+2. **KS süresi**: ilam paylarının (gün × oran) toplamı; 107/3-e (28 yıl), örgüt/tekerrürde
+   107/4-e ve 108/1-c (32 yıl) tavanı. Bihakkın tarih yıl/ay/gün bileşenlerinin toplamıyla.
+3. **Açık kurum**: bir ilamda yasak varsa yasak; hepsi doğrudansa doğrudan; aksi hâlde en
+   kısıtlayıcı ilamın şartı (Yönetmelik m.6/3; en geç normal tarih).
+4. **DS yolları**: bir yol yalnız bütün ilamlar için uygunsa uygulanır (Kleene VE); karma
+   rejimde inceleme notu. Asgari kurum süresi yalnız 04/06/2025 sonrası ilamların payından.
+5. **Takvim**: tek ilamdaki DS seçimi ve takvim kurulumu (`hesap/senaryo.js →
+   dsSecVeTakvimKur`) aynen kullanılır.
+
+Müebbet içeren toplama ve toplamada çocuk gün ağırlığı desteklenmez: müebbet reddedilir,
+çocukta ağırlık uygulanmaz ve sonuç "en çok" işaretlenir.
+
 ## 5. Varsayım ve ihtiyat politikası
 
 * **Olağan varsayımlar** yalnız `null` alanlara uygulanır ve her biri çıktıda listelenir
@@ -129,7 +183,7 @@ Kesirli gün yönü ve yönetmelikteki "ay" yöntemi kural tabanında kabul test
 Bu seçimler `zaman/profil.js` içinde adlandırılmış bir profilde toplanır ve her çıktıda
 `hesap_profili_id` olarak saklanır. Arayüz varsayılan profili kullanır.
 
-## 7. Test stratejisi (`npm test`, 280 test)
+## 7. Test stratejisi (`npm test`, 309 test)
 
 | Katman | Dosya | Kapsam |
 |---|---|---|
@@ -137,8 +191,14 @@ Bu seçimler `zaman/profil.js` içinde adlandırılmış bir profilde toplanır 
 | Veri | `tests/veri.test.js` | Kaynak doğrulaması, paket güncelliği, SHA-256, TCK yapısı, madde çözümleme |
 | Kabul | `tests/kabul.test.js` | 57 kabul senaryosu (K01-K57) |
 | Hesap | `tests/hesap.test.js` | Sayısal sonuçlar, dallar, profil, belirlenimcilik, politika ızgarası (672 vaka) |
-| Arayüz | `tests/arayuz.test.js` | Dosya → vaka, soru sırası, sonucu değiştiren soru seçimi, sonuç özeti, paylaşım metni |
-| Uçtan uca | `scripts/e2e.mjs` | Gerçek Chromium'da telefon (390×844), açılır pencere (400px) ve masaüstü: adım adım soru akışı, sonuç, neden ve madde, kanıt doğrulama, süreler, kayıt, karanlık tema |
+| Toplama | `tests/toplama.test.js` | İlam başına oran, pay toplamı, 107/3-4 tavanı, para-hapis, engeller, karma DS rejimi |
+| Belge | `tests/belge.test.js` | Arama kopyası, ceza/tarih desenleri, içtima kararı, müddetname, gerekçeli karar, UDF/HTML/PDF |
+| Arayüz | `tests/arayuz.test.js` | Dosya → vaka, soru sırası, sonucu değiştiren soru seçimi, sonuç özeti, paylaşım metni, sürüm 3 → 4 göçü |
+| Çok ilam | `tests/coklu.test.js` | Belge aktarımı (yeni/birleştir, eşleştirme, avukat cevabının korunması), ilam başına soru sırası, ilam görünümü, toplama özeti, kayıt/yükleme |
+| Uçtan uca | `scripts/e2e.mjs` | Gerçek Chromium'da telefon (390×844), açılır pencere (400px) ve masaüstü: adım adım soru akışı, sonuç, neden ve madde, kanıt doğrulama, süreler, kayıt, karanlık tema; içtima kararı yapıştırma, müddetname `.udf` yükleme, 6 ilamın soruları, ekrandaki sonucun Node modeliyle eşitliği, ilam ekleme/çıkarma |
+
+Belge testlerindeki örnek belgeler (`tests/belgeler/`) anonimleştirilmiştir; gerçek kişi
+bilgisi depoya konmaz.
 
 ## 8. Kural tabanını güncelleme
 
@@ -156,7 +216,12 @@ değerlendirilir ve gerekçe tablosunda görünür; hesaba bağlanması için il
 
 ## 9. Bilinen sınırlar
 
-Çıktıdaki `desteklenmeyen_dallar` listesi: birden çok ilamın toplanması ve 107/3-4
-tavanları, infaz kesintileri (firar, izin, erteleme, başka tutuklama), 2005 öncesi
-dosyalar, geçici 10/2, 7595 özel ertelemesi, disiplin/iyi hâl süreçleri, çek m.6 faiz
-tutarı. Bunlar sonuçta açıkça gösterilir; sessizce varsayılmaz.
+Çıktıdaki `desteklenmeyen_dallar` listesi: müebbet içeren toplama ve toplamada çocuk gün
+ağırlığı, infaz kesintileri (firar, izin, erteleme, başka tutuklama), 2005 öncesi dosyalar,
+geçici 10/2, 7595 özel ertelemesi, disiplin/iyi hâl süreçleri, çek m.6 faiz tutarı. Bunlar
+sonuçta açıkça gösterilir; sessizce varsayılmaz.
+
+Belge okuyucu UYAP metin biçimlerine dayanır; biçimi çok farklı bir müddetname veya birden
+çok ilamı tablo hâlinde listeleyen içtimalı müddetname kısmen okunabilir. Okunan her değer
+önizlemede gösterilir ve onaysız aktarılmaz. Toplamada infaza başlama tek tarihtir; giriş
+tarihinden sonra işlenmiş suç (cezaevinde suç) içeren dosya hesaplanmaz.

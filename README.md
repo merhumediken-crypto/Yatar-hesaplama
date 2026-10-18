@@ -4,6 +4,8 @@ Müvekkile söylenecek cümleyi verir: **"Şu kadar gün kapalıda, şu kadar g�
 
 Araç eksik bilgiyi **sırayla, tek tek** sorar. Her soruda "Bilmiyorum" seçeneği vardır. Yalnız **sonucu değiştiren** ek sorular sorulur: 3 yıl 1 ay 15 gün nitelikli hırsızlıkta kast, örgüt ya da fıkra sorulmaz.
 
+**Belgeden okuma (0.7):** İçtima (cezaların toplanması) kararı, müddetname veya gerekçeli kararın metni yapıştırılır ya da UYAP'tan indirilen `.udf` dosyası seçilir. İçtima kararındaki her ilam ayrı kayıt olur (mahkeme, esas/karar no, hüküm tarihi, ceza, infaz no); belgede olmayan bilgiler (suç tarihi, suç, tekerrür, gözaltı/tutukluluk) **her ilam için sırayla** sorulur. Ardından gelen müddetname infaz numarasıyla doğru ilama eşlenir ve suç tarihini, suçu, gözaltı/tutukluluk aralıklarını ve cezaevine giriş tarihini doldurur. Cezalar 5275 m.99'a göre toplanarak tek takvimde hesaplanır.
+
 Hukuki içerik **İnfaz Mevzuat Kural Tabanı 0.4.0-gecici10-butunlesik** dosyasından gelir: 106 kural, 48 karar düğümü, 186 kaynak kanıtı ve 13 kanun/yönetmeliğin tam metni. Hesap cihazda yapılır; UYAP'tan veri çekilmez, hiçbir veri dışarı gönderilmez.
 
 > **Hukuki sınır:** Tarihler iyi hâl şartıyla en erken tarihlerdir. Açığa ayrılma, DS ve koşullu salıverilme kararları gerçekleşmiş sayılmaz. Sonuç resmî müddetnamenin yerine geçmez. 01/06/2005 öncesi suçlar hesaplanmaz.
@@ -12,11 +14,12 @@ Hukuki içerik **İnfaz Mevzuat Kural Tabanı 0.4.0-gecici10-butunlesik** dosyas
 
 | Bölüm | İçerik |
 |---|---|
-| **Cevaplar** | Verilen cevaplar kutucuk olarak durur; dokununca o soru yeniden açılır. "Bilmiyorum" cevapları kesik çizgilidir. |
-| **Soru kartı** | Sıradaki soru: kişinin durumu → suç tarihi → ceza → suç → tekerrür (1. tekerrürde önceki ceza) → giriş tarihi → mahsuplar → sonucu değiştiren ek sorular (fıkra, yaş, 0-6 yaş çocuklu kadın, sağlık raporu, mağdur…). |
+| **Belgeden oku** | Metin yapıştırma veya `.udf`/`.txt`/`.html` dosyası. Önizlemede okunan ilamlar, karardaki toplamın ilam cezalarıyla uyuşup uyuşmadığı ve uyarılar görünür; onaylanmadan hiçbir şey hesaba aktarılmaz. **Mevcut dosyaya ekle** yalnız boş alanları doldurur, avukatın cevaplarını değiştirmez. Metin yalnız bellekte tutulur, kaydedilmez. |
+| **Cevaplar** | Verilen cevaplar kutucuk olarak durur; dokununca o soru yeniden açılır. "Bilmiyorum" cevapları kesik çizgilidir. Birden çok ilamda her ilam katlanır bir gruptur (bekleyen soru sayısı veya ✓); ilam eklenebilir, iki dokunuşla çıkarılabilir. |
+| **Soru kartı** | Sıradaki soru: kişinin durumu → suç tarihi → ceza → suç → tekerrür (1. tekerrürde önceki ceza) → giriş tarihi → mahsuplar → sonucu değiştiren ek sorular (fıkra, yaş, 0-6 yaş çocuklu kadın, sağlık raporu, mağdur…). Birden çok ilamda önce kişi ve giriş, sonra her ilamın soruları; kartın üstünde hangi ilamın sorulduğu yazar. Aynı hükümdeki ikinci ilamda suç tarihi tek dokunuşla önerilir; belgede geçen TCK maddeleri suç sorusunda öneri olarak çıkar. |
 | **Mahsuplar (müddetname)** | Birden çok kayıt: gözaltı, tutukluluk, konutu terk etmeme (2 gün = 1 gün), kullanılan denetimli serbestlik. Her kayıt gün sayısı ya da tarih aralığıyla (iki uç dahil) girilir; çakışan aralıklar uyarılır. DS'den geri gönderilen hükümlü açık cezaevinde devam eder (105/A/6-7). |
 | **Müddetname ile karşılaştır** | Müddetnamedeki açığa ayrılma, DS'ye ayrılma, koşullu salıverilme ve bihakkın tahliye tarihleri girilir; hesapla farkı gün olarak gösterilir. |
-| **Sonuç** | Kapalı / açık / denetimli serbestlik gün sayıları, tarihli zaman çizelgesi (giriş → açığa geçiş → cezaevinden çıkış → koşullu salıverilme → ceza bitişi), tekerrürsüz / 1. / 2. tekerrür karşılaştırması, bilinmeyenler, hesabın adımları. Sayıya dokununca nedeni ve madde metni bağlantısı açılır. **Kopyala / Paylaş** müvekkile gönderilecek düz metni verir. |
+| **Sonuç** | Kapalı / açık / denetimli serbestlik gün sayıları, tarihli zaman çizelgesi (giriş → açığa geçiş → cezaevinden çıkış → koşullu salıverilme → ceza bitişi), tekerrürsüz / 1. / 2. tekerrür karşılaştırması (toplanan cezalarda **ilam dökümü**: ilam başına ceza, KS oranı ve payı), bilinmeyenler, hesabın adımları. Sayıya dokununca nedeni ve madde metni bağlantısı açılır. **Kopyala / Paylaş** müvekkile gönderilecek düz metni verir. |
 | **Mevzuat** | 13 tam metinde madde/kelime arama; kural kanıtı (SHA-256 tarayıcıda doğrulanır); hesabın dayandığı kurallar. |
 | **Süreler** | DS müdürlüğüne başvuru (5 gün), infaz işlemine şikâyet (15/30 gün), infaz hâkimliği kararına itiraz (2 hafta). |
 
@@ -47,11 +50,19 @@ Aynı dosya suç tarihi 01/01/2023 olursa:
 
 DS talebi olağan kabul edilir. Talep olmazsa çıkış koşullu salıverilmede olur ve sonuç kartında ayrı satır olarak gösterilir.
 
+## Örnek: içtima kararı + müddetname (6 ilam)
+
+Diyarbakır 1. İnfaz Hâkimliği içtima kararı (6 ilam, toplam 11 yıl 25 ay 37 gün) yapıştırılır, 5. ilamın müddetnamesi `.udf` olarak seçilir. Müddetname 5. ilamın suç tarihini (03.02.2024), suçunu (TCK 86/2), gözaltı ve tutukluluk aralıklarını (48 gün) ve giriş tarihini (05.08.2025) doldurur. Diğer beş ilamın suç tarihi, suçu ve tekerrürü sorulur. Her ilamın KS payı kendi oranıyla bulunur ve toplanır (bu örnekte 2402 gün). Tek ilamın müddetnamesindeki KS ve tahliye tarihleri toplam hesapla karşılaştırılamayacağı için karşılaştırma tablosuna aktarılmaz; araç bunu uyarı olarak söyler.
+
+Desteklenmeyen toplama hâlleri sessizce hesaplanmaz: müebbet içeren toplama, tazyik/disiplin hapsi, KS yasağı veya geri alma olan ilam, toplamada çocuk gün ağırlığı (en çok değer, inceleme notuyla).
+
 ## Kurulum
 
 **Bilgisayar (Chrome):** `chrome://extensions` → Geliştirici modu → **Paketlenmemiş öğe yükle** → `extension` klasörü. Simgeye basınca açılır; **Tam sayfa** ile sekmede açılır.
 
-**Telefon (Lemur Browser vb. eklenti destekleyen Chromium tarayıcılar):** `npm run paketle` ile oluşan `dist/…zip` dosyasını telefona aktarın, tarayıcının eklenti sayfasında geliştirici modunu açıp zip/klasörden yükleyin. Sayfa telefon ekranına göre tasarlanmıştır.
+**Telefon (Lemur Browser vb. eklenti destekleyen Chromium tarayıcılar):** `npm run paketle` ile oluşan `dist/…zip` dosyasını telefona aktarın, tarayıcının eklenti sayfasında geliştirici modunu açıp zip/klasörden yükleyin. Simgeye dokununca hesap tam sekmede açılır (dar açılır pencere kullanılmaz). Sayfa telefon ekranına göre tasarlanmıştır.
+
+**Güncelleme:** Kayıtlı dosyanın korunması için eklentiyi kaldırmadan, aynı klasörün/zip'in yeni sürümüyle güncelleyin. 0.6 ve öncesinde kaydedilen tek ilamlı dosya ilk açılışta yeni biçime (sürüm 4, ilam listesi) kendiliğinden çevrilir.
 
 ## Mimari
 
@@ -59,19 +70,19 @@ Ayrıntılı tasarım: [docs/MIMARI.md](docs/MIMARI.md).
 
 ```
 kaynak/kural_tabani.json ──(npm run veri: doğrula, türet, böl)──▶ extension/veri/
-extension/cekirdek/   saf hesap çekirdeği: koşul dili · karar motoru · hesap · tekerrür · çek · çıktı
-extension/ui/         dosya (cevaplar→vaka) · sorular (sıra, sonucu değiştiren soru) · özet · ekran
-tests/                dil (162) · veri · kabul (57) · hesap · arayüz
+extension/cekirdek/   saf hesap çekirdeği: koşul dili · karar motoru · hesap · toplama · tekerrür · çek · belge okuyucu · çıktı
+extension/ui/         dosya (cevaplar→vaka, ilam görünümü) · sorular (ilam başına sıra, sonucu değiştiren soru) · belge aktarımı · özet · ekran
+tests/                dil (162) · veri · kabul (57) · hesap · toplama · belge · arayüz · çok ilam
 scripts/              veri-derle.mjs · e2e.mjs · paketle.sh · ikon_uret.py
 ```
 
 ## Geliştirme
 
 ```sh
-npm test              # 280 test: dil uyumu (162), veri bütünlüğü, 57 kabul senaryosu, hesap, arayüz modelleri
+npm test              # 309 test: dil uyumu (162), veri bütünlüğü, 57 kabul senaryosu, hesap, toplama, belge okuyucu, arayüz modelleri
 npm run veri          # kaynak kural tabanından çalışma paketlerini derler
 npm run veri:kontrol  # paketlerin güncel olduğunu denetler
-npm run e2e           # gerçek Chromium'da telefon ve masaüstü boyutunda uçtan uca test
+npm run e2e           # gerçek Chromium'da telefon ve masaüstü: soru akışı, belge yapıştırma, .udf yükleme, 6 ilamlı toplama
 npm run paketle       # dist/infaz-tekerrur-hesabi-<sürüm>.zip
 ```
 
