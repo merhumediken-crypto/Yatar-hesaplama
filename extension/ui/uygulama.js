@@ -120,7 +120,7 @@ function ayniTarihOnerisi(d, o) {
   const m = d.ilamlar[o.i].meta || {};
   if (!m.esas_no) return null;
   const j = d.ilamlar.findIndex((il, n) => n !== o.i && il.suc_tarihi && il.meta?.esas_no === m.esas_no && (il.meta?.karar_no || null) === (m.karar_no || null));
-  return j < 0 ? null : { tarih: d.ilamlar[j].suc_tarihi, ad: ilamAdi(d, j) };
+  return j < 0 ? null : { tarih: d.ilamlar[j].suc_tarihi, ad: `${j + 1}. ilam` };
 }
 
 const ilamEklenebilir = (d) => d.ilamlar.length < ILAM_SINIRI && (cokluMu(d) || hesaplanabilir(d));

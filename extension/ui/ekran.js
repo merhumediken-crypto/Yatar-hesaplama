@@ -149,7 +149,7 @@ function govde(s, d, durum) {
         .join('')}</div>`;
     case 'tarih': {
       const deger = s.id === 'suc_tarihi' ? d.suc_tarihi : d.ek[s.id];
-      const hizli = s.id === 'suc_tarihi' && durum.ayniTarih && !deger ? `<button type="button" class="secenek satir hizli" data-tarih-hizli="${esc(durum.ayniTarih.tarih)}"><b>${esc(tr(durum.ayniTarih.tarih))}</b><small>${esc(durum.ayniTarih.ad)} ile aynı (aynı hüküm)</small></button>` : '';
+      const hizli = s.id === 'suc_tarihi' && durum.ayniTarih && !deger ? `<button type="button" class="secenek satir hizli" data-tarih-hizli="${esc(durum.ayniTarih.tarih)}"><b>${esc(tr(durum.ayniTarih.tarih))}</b><small>${esc(durum.ayniTarih.ad)} ile aynı · aynı esas ve karar</small></button>` : '';
       return `${hizli}<input type="date" id="s_tarih" aria-label="${esc(metin(s.baslik, d))}" class="buyuk-girdi" value="${esc(deger || '')}" max="2100-12-31">`;
     }
     case 'ceza': {
