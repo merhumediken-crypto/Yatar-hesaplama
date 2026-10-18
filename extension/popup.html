@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0f1218" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f2ece1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#13120f" media="(prefers-color-scheme: dark)">
   <title>Yatar Hesabı</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header class="ust">
     <div class="marka">
-      <img src="icons/icon48.png" width="28" height="28" alt="">
+      <svg class="marka-isaret" viewBox="0 0 32 32" aria-hidden="true"><circle class="kz-kapali" cx="9.5" cy="9.5" r="7.5"/><rect class="kz-ds" x="18" y="2" width="12" height="16"/><path class="kz-acik" d="M2 30A8 8 0 0 1 18 30Z"/><rect class="kz-murekkep" x="20" y="22" width="10" height="8"/></svg>
       <div><span>Yatar Hesabı</span><small>İNFAZ ÇALIŞMA ALANI</small></div>
     </div>
     <div class="ust-dugmeler">
@@ -40,7 +40,8 @@
     <!-- HESAP: cevaplar + sıradaki soru + sonuç -->
     <section id="ekran-hesap" role="tabpanel" aria-labelledby="sekme-hesap" class="ekran hesap-ekrani">
       <div class="sutun-soru">
-        <div class="calisma-baslik"><span class="ust-etiket">ADIM ADIM DOSYA</span><h1>İnfaz hesabı</h1><p>Bilgileri tamamlayın, süreleri ve nedenlerini birlikte görün.</p></div>
+        <div class="calisma-baslik"><span class="ust-etiket">ADIM ADIM DOSYA</span><h1>İnfaz hesabı</h1><p>Bilgileri tamamlayın, süreleri ve nedenlerini birlikte görün.</p>
+          <div class="faz-lejant" aria-hidden="true"><span><i class="k"></i>Kapalı</span><span><i class="a"></i>Açık</span><span><i class="d"></i>Denetimli serbestlik</span><span><i class="c"></i>Çıkış</span></div></div>
         <div id="belgeKarti" class="belge-karti"></div>
         <div id="cevaplar" class="cevaplar" aria-label="Verilen cevaplar"></div>
         <div id="soruKarti" class="soru-karti"></div>

@@ -8,6 +8,7 @@ import { sucAra, maddeCoz } from './tck-maddeleri.js';
 import { ozelDurum, mahsupGunu, siraliIlamAdi, MAHSUP_TURLERI } from './dosya.js';
 import { maddeEtiketi } from './tck-maddeleri.js';
 import { sureYaklasik } from './ozet.js';
+import { sonucKompozisyonu, bosKompozisyon } from './kompozisyon.js';
 
 const tr = (s) => (s ? T.trTarih(s) : '—');
 const IKON = {
@@ -394,10 +395,11 @@ function gerekceHtml(o) {
   </section>`;
 }
 
+// Oranlar kompozisyonda görünür; burada yalnız toplam.
 function dagilim(o) {
   const toplam = o.kapali + o.acik + o.ds;
   if (!toplam) return '<p class="dagilim-notu">Bu girişten sonra kalan kurum veya DS günü yok.</p>';
-  return `<div class="dagilim" role="img" aria-label="${o.kapali} gün kapalı, ${o.acik} gün açık, ${o.ds} gün denetimli serbestlik">${['kapali', 'acik', 'ds'].filter((k) => o[k] > 0).map((k) => `<span class="${k}" style="flex-grow:${o[k] / toplam}" title="${o[k]} gün"></span>`).join('')}</div><p class="dagilim-notu">Girişten ${o.tarihler.ks ? 'koşullu salıverilmeye' : 'çıkışa'} kadar ${toplam} gün · mahsup sonrası kalan süre</p>`;
+  return `<p class="dagilim-notu">Girişten ${o.tarihler.ks ? 'koşullu salıverilmeye' : 'çıkışa'} kadar ${toplam} gün · mahsup sonrası kalan süre</p>`;
 }
 
 function cizelge(olaylar) {
@@ -458,7 +460,7 @@ export function sonucCiz(o, { gorunen = null, acikNeden = null, paylasVar = fals
   const acikAdimlar = el.dataset.senaryo === o.senaryo ? [...el.querySelectorAll('[data-gerekce][open]')].map((d) => d.dataset.gerekce) : [];
   el.dataset.senaryo = o.senaryo || '';
   if (o.durum === 'bos' || o.durum === 'kapsam_disi') {
-    el.innerHTML = `<div class="sonuc-bos${o.durum === 'kapsam_disi' ? ' kapsam-disi' : ''}"><span class="bos-simge" aria-hidden="true">${IKON.tamam}</span><span class="ust-etiket">İNFAZ ÇALIŞMA ALANI</span><h2>${o.durum === 'kapsam_disi' ? 'Kapsam dışı suç tarihi' : 'Bir dosya, anlaşılır bir hesap.'}</h2><p>${esc(o.mesaj)}</p>${o.durum === 'bos' ? '<div class="bos-fazlar"><span>01 Kapalı</span><span>02 Açık</span><span>03 Denetimli</span></div><small>Bilgileri sırayla girin; süreler, tarihler ve gerekçeleri birlikte oluşsun.</small>' : ''}</div>`;
+    el.innerHTML = `<div class="sonuc-bos${o.durum === 'kapsam_disi' ? ' kapsam-disi' : ''}">${o.durum === 'bos' ? `<div class="bos-resim">${bosKompozisyon()}</div>` : ''}<span class="ust-etiket">İNFAZ ÇALIŞMA ALANI</span><h2>${o.durum === 'kapsam_disi' ? 'Kapsam dışı suç tarihi' : 'Bir dosya, anlaşılır bir hesap.'}</h2><p>${esc(o.mesaj)}</p>${o.durum === 'bos' ? '<div class="bos-fazlar"><span>01 Kapalı</span><span>02 Açık</span><span>03 Denetimli serbestlik</span></div><small>Bilgileri sırayla girin; süreler, tarihler ve gerekçeleri birlikte oluşsun.</small>' : ''}</div>`;
     return;
   }
   const parca = [];
@@ -474,7 +476,7 @@ export function sonucCiz(o, { gorunen = null, acikNeden = null, paylasVar = fals
         <span class="etiket">${esc(o.baslik)} · iyi hâl şartıyla</span>
         ${onSonuc ? '<span class="rozet on-sonuc" title="Sorular tamamlanınca güncellenir">ön sonuç</span>' : o.en_cok ? '<span class="rozet en-cok" title="Bilinmeyen bilgiler aleyhe kabul edildi">en çok</span>' : ''}
       </div>
-      <div class="tahliye-vitrin"><span class="ust-etiket">${onSonuc ? 'BİLGİLER TAMAMLANMADAN ÖN SONUÇ' : o.en_cok ? 'MEVCUT KABULLERLE ÖNGÖRÜLEN ÇIKIŞ' : 'İYİ HÂL VE GEREKLİ KARARLARLA İLK ÇIKIŞ'}</span><time datetime="${esc(o.tarihler.cikis)}">${esc(tr(o.tarihler.cikis))}</time><span class="uygulanan-yol">${esc(o.gerekce.yol)}</span></div>
+      <div class="tahliye-vitrin"><span class="ust-etiket">${onSonuc ? 'BİLGİLER TAMAMLANMADAN ÖN SONUÇ' : o.en_cok ? 'MEVCUT KABULLERLE ÖNGÖRÜLEN ÇIKIŞ' : 'İYİ HÂL VE GEREKLİ KARARLARLA İLK ÇIKIŞ'}</span><time datetime="${esc(o.tarihler.cikis)}">${esc(tr(o.tarihler.cikis))}</time>${sonucKompozisyonu(o)}<span class="uygulanan-yol">${esc(o.gerekce.yol)}</span></div>
       <p class="cumle" role="status" aria-atomic="true">${esc(cumle)}</p>
       <div class="uc-sayi">
         ${sayiKutusu('kapali', 'Kapalı', o.kapali, acikNeden === 'kapali')}

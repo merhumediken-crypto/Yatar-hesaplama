@@ -25,6 +25,19 @@ Hukuki içerik **İnfaz Mevzuat Kural Tabanı 0.4.0-gecici10-butunlesik** dosyas
 
 Telefonda tek sütun ve alt menü, geniş ekranda soru solda sonuç sağda görünür. Karanlık tema sistem ayarını izler. Dosya cihazda saklanır; **Yeni** ile temizlenir.
 
+### Tasarım: "Taeuber" teması (0.8)
+
+Görsel dil, Zürih Dada'sının ve Somut Sanat'ın öncülerinden **Sophie Taeuber-Arp**'ın (1889-1943) geometrik kompozisyonlarından gelir: kâğıt zemin, mürekkep çizgiler, gölge yerine çizgi, düz ve sınırlı renk alanları. Biçimler anlam taşır ve her ekranda aynıdır:
+
+| Biçim | Anlam |
+|---|---|
+| ● kırmızı daire | kapalı cezaevi |
+| ◗ yeşil yarım daire | açık cezaevi |
+| ■ mavi kare | denetimli serbestlik |
+| ● hardal daire | cezaevinden çıkış |
+
+**Kompozisyon:** Sonuç kartındaki resim süs değil, hesabın kendisidir. Yatay şerit kapalı, açık, DS ve koşullu salıverilmeden ceza bitişine kadar olan süreyi gün oranında böler. Her evrenin biçimi kendi süresiyle orantılıdır, çıkış tarihi şeridi kesen dikey çizgidir. Küçük serbest biçimler dosyanın tarihlerinden türetilen bir tohumla yerleşir: aynı dosya her zaman aynı resmi verir, her dosyanın resmi kendine özgüdür. Yazı tipi Archivo'dur (SIL OFL); değişken genişliği sayesinde tarih ve sayılar geniş ve ağır, metin sakin kalır. Yazı tipi eklentiyle birlikte gelir; ağ isteği yapılmaz.
+
 ## Örnek: 01/07/2025 · 3 yıl 1 ay 15 gün · TCK 142 · giriş 01/01/2026
 
 | | Kapalı | Açık | DS | Cezaevinden çıkış |
@@ -71,7 +84,8 @@ Ayrıntılı tasarım: [docs/MIMARI.md](docs/MIMARI.md).
 ```
 kaynak/kural_tabani.json ──(npm run veri: doğrula, türet, böl)──▶ extension/veri/
 extension/cekirdek/   saf hesap çekirdeği: koşul dili · karar motoru · hesap · toplama · tekerrür · çek · belge okuyucu · çıktı
-extension/ui/         dosya (cevaplar→vaka, ilam görünümü) · sorular (ilam başına sıra, sonucu değiştiren soru) · belge aktarımı · özet · ekran
+extension/ui/         dosya (cevaplar→vaka, ilam görünümü) · sorular (ilam başına sıra, sonucu değiştiren soru) · belge aktarımı · özet · kompozisyon · ekran
+extension/fonts/      Archivo (değişken, latin + latin-ext, SIL OFL)
 tests/                dil (162) · veri · kabul (57) · hesap · toplama · belge · arayüz · çok ilam
 scripts/              veri-derle.mjs · e2e.mjs · paketle.sh · ikon_uret.py
 ```
@@ -79,7 +93,7 @@ scripts/              veri-derle.mjs · e2e.mjs · paketle.sh · ikon_uret.py
 ## Geliştirme
 
 ```sh
-npm test              # 309 test: dil uyumu (162), veri bütünlüğü, 57 kabul senaryosu, hesap, toplama, belge okuyucu, arayüz modelleri
+npm test              # 315 test: dil uyumu (162), veri bütünlüğü, 57 kabul senaryosu, hesap, toplama, belge okuyucu, arayüz modelleri, kompozisyon
 npm run veri          # kaynak kural tabanından çalışma paketlerini derler
 npm run veri:kontrol  # paketlerin güncel olduğunu denetler
 npm run e2e           # gerçek Chromium'da telefon ve masaüstü: soru akışı, belge yapıştırma, .udf yükleme, 6 ilamlı toplama

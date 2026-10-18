@@ -57,8 +57,16 @@ Bağımlılık yönü tek yönlüdür: `ui → cekirdek/index.js → alt modüll
 | `ui/belge-aktar.js` | Belge okuma sonucu → dosya. "Yeni" kipi dosyayı belgeden kurar; "birleştir" kipi ilamları infaz no ya da esas+karar no ile (gerekirse ceza miktarıyla) eşler ve yalnız boş alanları doldurur. Her aktarım değişiklik satırı olarak döner. | yok |
 | `ui/ozet.js` | Seçili senaryonun takviminden kapalı / açık / DS günleri, zaman çizelgesi, nedenler (kural → madde bağlantısı), karşılaştırma ya da ilam dökümü ve paylaşım metni. | yok |
 | `ui/gerekce.js` | Altı adımlı gerekçe; toplamada veriler ve KS adımı ilam dökümüyle. | yok |
+| `ui/kompozisyon.js` | Sonucun geometrik resmi (SVG metni): kapalı/açık/DS/kalan süre şeridi gün oranında, evre biçimleri (daire, yarım daire, kare) süreyle orantılı, çıkış ve KS çizgileri; serbest biçimler tarihlerden türeyen tohumla belirlenimci yerleşir. Boş ekran resmi ve evre simgeleri. | yok |
 | `ui/ekran.js` | Belge paneli, cevap kutucukları (ilam grupları), soru kartı ve sonuç çizimi. | var |
 | `ui/uygulama.js` | Durum, olaylar, kalıcı kayıt (`chrome.storage` yoksa `localStorage`). Belge metni kaydedilmez. | var |
+
+**Tema** (`popup.css`, "Taeuber"). Tek dosyada tasarım sistemi: renk, çizgi ve yazı
+belirteçleri (`:root`), karanlık tema aynı belirteçlerin ikinci takımı. Kompozisyon renkleri
+`.kz-*` sınıflarıyla verilir; böylece SVG de temaya uyar. Biçim dili: kapalı ● daire,
+açık ◗ yarım daire, DS ■ kare, çıkış ● hardal; sayı kutuları, takvim düğümleri, lejant ve
+kompozisyon aynı biçimleri kullanır. Yazı tipi Archivo yerel woff2 olarak gelir
+(`extension/fonts`, SIL OFL); kanun metinleri sistem tırnaklı yazısıyla okunur.
 
 **İlam görünümü.** Soru tanımları tek bir ilam üzerinde yazılmıştır (`d.suc_tarihi`, `d.konum`,
 `d.ek.yas`). `ilamGorunumu(dosya, i)` bir Proxy'dir: ilam alanlarını (suç tarihi, ceza, suç,
@@ -187,7 +195,7 @@ Kesirli gün yönü ve yönetmelikteki "ay" yöntemi kural tabanında kabul test
 Bu seçimler `zaman/profil.js` içinde adlandırılmış bir profilde toplanır ve her çıktıda
 `hesap_profili_id` olarak saklanır. Arayüz varsayılan profili kullanır.
 
-## 7. Test stratejisi (`npm test`, 309 test)
+## 7. Test stratejisi (`npm test`, 315 test)
 
 | Katman | Dosya | Kapsam |
 |---|---|---|
@@ -198,6 +206,7 @@ Bu seçimler `zaman/profil.js` içinde adlandırılmış bir profilde toplanır 
 | Toplama | `tests/toplama.test.js` | İlam başına oran, pay toplamı, 107/3-4 tavanı, para-hapis, engeller, karma DS rejimi |
 | Belge | `tests/belge.test.js` | Arama kopyası, ceza/tarih desenleri, içtima kararı, müddetname, gerekçeli karar, UDF/HTML/PDF |
 | Arayüz | `tests/arayuz.test.js` | Dosya → vaka, soru sırası, sonucu değiştiren soru seçimi, sonuç özeti, paylaşım metni, sürüm 3 → 4 göçü |
+| Kompozisyon | `tests/kompozisyon.test.js` | Şerit oranları, bitişik bölümler, çıkış çizgisinin yeri, belirlenimcilik, sıfır evre ve dar bölüm yerleşimi |
 | Çok ilam | `tests/coklu.test.js` | Belge aktarımı (yeni/birleştir, eşleştirme, avukat cevabının korunması), ilam başına soru sırası, ilam görünümü, toplama özeti, kayıt/yükleme |
 | Uçtan uca | `scripts/e2e.mjs` | Gerçek Chromium'da telefon (390×844), açılır pencere (400px) ve masaüstü: adım adım soru akışı, sonuç, neden ve madde, kanıt doğrulama, süreler, kayıt, karanlık tema; içtima kararı yapıştırma, müddetname `.udf` yükleme, 6 ilamın soruları, ekrandaki sonucun Node modeliyle eşitliği, ilam ekleme/çıkarma |
 

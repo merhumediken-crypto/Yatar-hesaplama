@@ -123,7 +123,8 @@ function ayniTarihOnerisi(d, o) {
   return j < 0 ? null : { tarih: d.ilamlar[j].suc_tarihi, ad: `${j + 1}. ilam` };
 }
 
-const ilamEklenebilir = (d) => d.ilamlar.length < ILAM_SINIRI && (cokluMu(d) || hesaplanabilir(d));
+// Tek ilamda "başka ilam ekle" sorular bitince görünür; soru akışını bölmez.
+const ilamEklenebilir = (d) => d.ilamlar.length < ILAM_SINIRI && (cokluMu(d) || (hesaplanabilir(d) && !durum.aktif));
 
 // Yalnız cevap listesi (soru kartındaki yazılmış değerler kaybolmasın).
 function cevaplariCiz() {
