@@ -20,9 +20,9 @@ import { acikKurumPlani, infazHakimiOnayiGerekir } from './acik-kurum.js';
 import { dsYollari, enIyiDsYolu } from './ds.js';
 import { gunAgirligiBelirle, agirlikliTarih } from './cocuk.js';
 
-const BASLIKLAR = { yok: 'Tekerrürsüz', birinci: '1. Tekerrür (mükerrir)', ikinci: '2. Tekerrür' };
+const BASLIKLAR = { yok: 'Tekerrürsüz', birinci: '1. Tekerrür (mükerrir)', ikinci: '2. Tekerrür', birlesik: 'Toplanan cezalar' };
 
-class SenaryoKaydi {
+export class SenaryoKaydi {
   constructor(derece) {
     this.anahtar = derece;
     this.baslik = BASLIKLAR[derece];
@@ -67,7 +67,7 @@ class SenaryoKaydi {
 
 // Sonuca katkı veren düğümün dayanak kurallarını kaydeder; ihtiyaten çözülmüşse
 // sonuç "en çok" olarak işaretlenir.
-function dugumKaydi(S, sonuc, { ihtiyatEtkili = true } = {}) {
+export function dugumKaydi(S, sonuc, { ihtiyatEtkili = true } = {}) {
   sonuc.dayanak_kurallar.forEach((k) => S.kural_idleri.add(k));
   if (ihtiyatEtkili && sonuc.ihtiyatli) S.en_cok = true;
 }
@@ -271,6 +271,12 @@ function senaryoHesaplaIc(kt, motor, ortam, derece) {
     if (i >= 0) S.karar_dugumu_sonuclari[i] = { ...S.karar_dugumu_sonuclari[i], ...y.kapi_sonucu, aday_tarihte: true };
     delete y.kapi_sonucu;
   }
+  return dsSecVeTakvimKur(S, ortam, { yollar, ksTarihi, bihakkin: tur === 'sureli_hapis' ? bihakkin : null, acik });
+}
+
+// DS yollarından en erken uygun olanı seçer, gerekli kararları ve takvimi kurar.
+// Tek ilam senaryosu ve toplama (toplama/toplama.js) aynı adımı kullanır.
+export function dsSecVeTakvimKur(S, ortam, { yollar, ksTarihi, bihakkin, acik }) {
   S.ds_yollari = yollar;
   for (const y of yollar) {
     if (y.uygun === true || y.ihtiyatli) S.kural_idleri.add(y.kural);
@@ -296,7 +302,7 @@ function senaryoHesaplaIc(kt, motor, ortam, derece) {
   }
   S.karar('İyi hâl ve infaz hâkiminin koşullu salıverilme kararı (5275 m.107/1, 107/11)', 'R062');
 
-  return takvimiKur(S, ortam, { ksTarihi, cikis, bihakkin: tur === 'sureli_hapis' ? bihakkin : null, dsTarihi: enIyi ? enIyi.tarih : null });
+  return takvimiKur(S, ortam, { ksTarihi, cikis, bihakkin, dsTarihi: enIyi ? enIyi.tarih : null });
 }
 
 // Ceza süresinin takvime işlenmesi (yıl resmî takvim, ay 30 gün; TCK 61/6).
@@ -358,7 +364,7 @@ function takvimiKur(S, ortam, { ksTarihi, cikis, bihakkin, dsTarihi = null, dsYo
   return bitir(S);
 }
 
-function bitir(S) {
+export function bitir(S) {
   S.durum = !S.uygulanabilir ? 'uygulanamaz' : S.hesaplanamadi ? 'hukuki_inceleme_gerekli' : null;
   return S;
 }
@@ -366,7 +372,7 @@ function bitir(S) {
 // Belgeli bağlamda belirsiz kalan ve kullanıcının girebileceği alanlar. Zaman
 // çizelgesinden türetilen infaz kapıları ve dosyayla ilgisiz düğüm grupları hariç.
 const TURETILEN_ALAN = /^(infaz\.(KSye_|aciga_ayrilma|iradesi_disinda|kurum$)|g10\.|hesap\.)/;
-function belirsizKosullar(belgeli, sonuclar) {
+export function belirsizKosullar(belgeli, sonuclar) {
   const cek = belgeli.ilam.kanun === 5941;
   const adliPara = belgeli.ilam.ceza_turu === 'adli_para';
   const alanlar = sonuclar

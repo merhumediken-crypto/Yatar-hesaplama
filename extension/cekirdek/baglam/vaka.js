@@ -107,6 +107,11 @@ function ilamNormallestir(d, i, yol) {
   const altMetin = (x) => (x === undefined || x === null || String(x).trim() === '' ? null : String(x).trim().toLowerCase());
   return {
     ilam_id: d.metin(i, 'ilam_id') || 'İlam-1',
+    // Toplamada ilamı tanıtan kısa ad (ör. "Diyarbakır 12. Asliye Ceza 2017/157 E.") ve hüküm tarihi.
+    etiket: d.metin(i, 'etiket'),
+    karar_tarihi: d.tarih(i, 'karar_tarihi', `${yol}.karar_tarihi`),
+    // İlk tekerrürde bu ilam için 108/2 sınırına esas en ağır önceki ceza.
+    tekerrure_esas_en_agir_ceza: d.ceza(i, 'tekerrure_esas_en_agir_ceza', `${yol}.tekerrure_esas_en_agir_ceza`),
     suc_tarihi: d.tarih(i, 'suc_tarihi', `${yol}.suc_tarihi`),
     suc_tarihi_hukuken_belirlendi: d.mantiksal(i, 'suc_tarihi_hukuken_belirlendi', `${yol}.suc_tarihi_hukuken_belirlendi`),
     kanun_madde_fikra_bent: {
@@ -229,6 +234,7 @@ export function vakaNormallestir(girdi = {}) {
   if (!vaka.suclar_ve_ilamlar.length) d.sorun('suclar_ve_ilamlar', 'En az bir ilam gerekir.', 'E011');
   for (const [n, i] of vaka.suclar_ve_ilamlar.entries()) {
     if (vaka.dogum_tarihi && i.suc_tarihi && vaka.dogum_tarihi > i.suc_tarihi) d.sorun('dogum_tarihi', 'Doğum tarihi suç tarihinden sonra olamaz.');
+    if (i.karar_tarihi && i.suc_tarihi && i.karar_tarihi < i.suc_tarihi) d.sorun(`suclar_ve_ilamlar[${n}].suc_tarihi`, 'Suç tarihi hüküm tarihinden sonra olamaz.');
     if (i.kesinlesme_tarihi && i.suc_tarihi && i.kesinlesme_tarihi < i.suc_tarihi) d.sorun(`suclar_ve_ilamlar[${n}].kesinlesme_tarihi`, 'Kesinleşme tarihi suç tarihinden önce olamaz.');
     if (vaka.infaza_baslama_tarihi && i.suc_tarihi && vaka.infaza_baslama_tarihi < i.suc_tarihi) d.sorun('infaza_baslama_tarihi', 'İnfaza başlama tarihi suç tarihinden önce olamaz.');
     if (vaka.hesap_tarihi && i.suc_tarihi && i.suc_tarihi > vaka.hesap_tarihi) d.sorun(`suclar_ve_ilamlar[${n}].suc_tarihi`, 'Suç tarihi hesap tarihinden sonra olamaz.');

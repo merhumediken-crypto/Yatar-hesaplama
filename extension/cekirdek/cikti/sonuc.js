@@ -13,6 +13,7 @@ import { mahsupHesapla } from '../hesap/mahsup.js';
 import { senaryoHesapla } from '../hesap/senaryo.js';
 import { tekerrurTespit, adayMetni } from '../tekerrur/tespit.js';
 import { cekDegerlendir } from '../cek/cek.js';
+import { toplamaSenaryosu, toplamaOnDenetimi, ilamEtiketi } from '../toplama/toplama.js';
 
 export const SENARYOLAR = [
   { anahtar: 'yok', baslik: 'Tekerrürsüz' },
@@ -24,7 +25,7 @@ const SURELI_TURLER = ['sureli_hapis', 'adli_paradan_cevrilen_hapis'];
 
 // Bu sürümün hesaplamadığı ve sonuçta açıkça listelenen dallar.
 export const DESTEKLENMEYEN_DALLAR = [
-  'Birden çok ilamın toplanması ve 5275 m.107/3-4 üst sınırları (A04)',
+  'Müebbet içeren toplama (5275 m.107/3-a…d, 107/4) ve toplamada çocuk gün ağırlığı',
   'Firar, izin, erteleme ve başka tutuklama gibi infaz kesintileri (V06)',
   '01/06/2005 öncesi suçlarda 647/765 lehe kanun karşılaştırması (A02)',
   'Geçici 10/2 (31/07/2023 izin statüsü) yolu',
@@ -174,6 +175,74 @@ export function toplamaDegerlendir(kt, ilamlar) {
   };
 }
 
+// Birden çok ilam: toplama senaryosu tek senaryo ("birlesik") olarak çıktıya yazılır.
+function toplamaCiktisi(kt, motor, vaka, cikti, secenekler, notlar) {
+  const on = toplamaOnDenetimi(vaka.suclar_ve_ilamlar);
+  if (on.eksik.length) {
+    cikti.durum = 'eksik_veri';
+    cikti.eksik_veri = on.eksik;
+    cikti.hata_kodlari = ['E001'];
+    return cikti;
+  }
+  if (on.engel) {
+    cikti.durum = 'hukuki_inceleme_gerekli';
+    cikti.notlar = [{ seviye: 'inceleme', kod: 'E007', mesaj: on.engel, kurallar: ['R005', 'R031'] }];
+    return cikti;
+  }
+  let sonuc;
+  try {
+    sonuc = toplamaSenaryosu(kt, motor, vaka, secenekler, notlar);
+  } catch (hata) {
+    if (!(hata instanceof RangeError)) throw hata;
+    cikti.durum = 'eksik_veri';
+    cikti.eksik_veri.push({ kod: 'GIRDI', alan: 'sure', mesaj: 'Toplam ceza veya mahsup hesaplanabilir takvim aralığını aşıyor.' });
+    return cikti;
+  }
+  const { S, ortak, toplamCeza } = sonuc;
+  notlar.ekle('varsayim', 'A01', `Hesap profili ${ortak.profil.id}: kesirli gün ${ortak.profil.gun_kusurati === 'yukari' ? 'yukarı' : 'aşağı'} yuvarlanır, yönetmelikteki "ay" ${ortak.profil.kurum_ayi === '30_gun' ? '30 gün' : 'takvim ayı'} sayılır (A01).`, ['R003']);
+  const varsayimNotlari = S.varsayimlar.map((v) => ({ seviye: 'varsayim', kod: v.kod || v.alan, mesaj: v.mesaj, kurallar: v.kurallar }));
+  S.durum = S.durum || durumBelirle(notlar.liste, S.notlar.liste, varsayimNotlari);
+  S.notlar = S.notlar.liste;
+  S.kural_idleri = [...S.kural_idleri];
+  cikti.hesap_tarihi = ortak.hesapTarihi;
+  cikti.hesap_profili_id = ortak.profil.id;
+  cikti.senaryolar = { birlesik: S };
+  cikti.secili_senaryo = 'birlesik';
+  cikti.durum = S.hesaplanamadi ? 'hukuki_inceleme_gerekli' : S.durum;
+  cikti.takvim = S.takvim;
+  cikti.varsayimlar = S.varsayimlar;
+  cikti.belirsiz_kosullar = S.belirsiz_kosullar;
+  cikti.DS_yollari = S.ds_yollari;
+  cikti.acik_kurum_yollari = S.acik_kurum ? [S.acik_kurum] : [];
+  cikti.gerekli_kararlar = S.gerekli_kararlar;
+  if (cikti.durum === 'varsayimli_senaryo') cikti.kurumda_kalacak_sure_gun = S.kurumda_kalis_gun;
+  const ilamlar = vaka.suclar_ve_ilamlar;
+  const tumSonra = ilamlar.every((i) => i.suc_tarihi);
+  cikti.toplama = {
+    ilam_sayisi: ilamlar.length,
+    toplam_ceza: toplamCeza,
+    toplam_gun: ortak.toplamGun,
+    ks_ham_gun: S.ks_ham_gun,
+    ks_gun: S.ks_gun,
+    ilamlar: (S.ilamlar || []).map((k) => ({ ilam_id: k.ilam_id, sira: k.sira, etiket: k.etiket, suc_tarihi: k.suc_tarihi, ceza: k.ceza, gun: k.gun, tekerrur: k.tekerrur, oran: k.oran, ks_ham_gun: k.ks_ham_gun, neden: k.neden, para_hapis: k.para_hapis, asgari_kurum_uygulanir: k.asgari_kurum_uygulanir, belirsiz_kosullar: k.belirsiz_kosullar })),
+    rejim: tumSonra ? toplamaDegerlendir(kt, ilamlar) : null,
+  };
+  cikti.rejim = [];
+  cikti.notlar = notlar.liste;
+  const tumNotlar = [...notlar.liste, ...S.notlar];
+  cikti.hukuki_kabuller = [...new Set([...notlar.liste.filter((n) => n.seviye === 'varsayim').map((n) => n.mesaj), ...S.varsayimlar.map((v) => v.mesaj)])];
+  cikti.engelleyici_konu_idleri = kodlariTopla(tumNotlar.filter((n) => n.seviye === 'inceleme' || n.kod === 'A01'), ['A']);
+  cikti.hata_kodlari = kodlariTopla(tumNotlar, ['E']);
+  const kurallar = new Set(['R001', 'R002', 'R003', 'R005', 'R006', 'R062', 'R126', ...S.kural_idleri]);
+  for (const n of tumNotlar) n.kurallar.forEach((k) => /^R\d+$/.test(k) && kurallar.add(k));
+  cikti.secilen_kural_idleri = [...kurallar].filter((id) => kt.kurallar.has(id)).sort();
+  cikti.uygulanan_madde_idleri = [...new Set(cikti.secilen_kural_idleri.flatMap((id) => kt.kural(id).madde_referanslari || []))];
+  cikti.kural_kanit_idleri = cikti.secilen_kural_idleri.flatMap((id) => kt.kural(id).kanit_kimlikleri || []);
+  cikti.kaynak_idleri = kt.kaynaklariTopla(cikti.secilen_kural_idleri).map((s) => s.kaynak_id);
+  cikti.hesap_izi = S.izler.map((i) => ({ senaryo: 'birlesik', ...i }));
+  return cikti;
+}
+
 export function hesapla(kt, girdi = {}, secenekler = {}) {
   const motor = new KararMotoru(kt);
   const { vaka, sorunlar } = vakaNormallestir(girdi);
@@ -235,12 +304,7 @@ export function hesapla(kt, girdi = {}, secenekler = {}) {
     cikti.notlar = [{ seviye: 'inceleme', kod: 'E014', mesaj: '1 Haziran 2005 öncesi suçlar bu araçta hesaplanmaz.', kurallar: ['R001'] }];
     return cikti;
   }
-  if (vaka.suclar_ve_ilamlar.length > 1) {
-    cikti.durum = 'hukuki_inceleme_gerekli';
-    cikti.toplama = vaka.suclar_ve_ilamlar.every((i) => i.suc_tarihi) ? toplamaDegerlendir(kt, vaka.suclar_ve_ilamlar) : null;
-    cikti.notlar = [{ seviye: 'inceleme', kod: 'E007', mesaj: 'Bu sürüm çoklu ilam toplamını hesaplamaz. İlk ilamın sonucu birleşik sonuç olarak gösterilmedi.', kurallar: ['R005', 'R031'] }];
-    return cikti;
-  }
+  if (vaka.suclar_ve_ilamlar.length > 1) return toplamaCiktisi(kt, motor, vaka, cikti, secenekler, notlar);
 
   let ortam;
   try {
